@@ -194,6 +194,7 @@ mixin _FromJson on _Shared {
       ClassDeclaration clazz,
       TypeDefinitionBuilder typeBuilder,
       _SharedIntrospectionData introspectionData) async {
+
     final constructors = await typeBuilder.constructorsOf(clazz);
     final fromJson =
         constructors.firstWhereOrNull((c) => c.identifier.name == 'fromJson');
