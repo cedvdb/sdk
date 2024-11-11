@@ -25,6 +25,7 @@ void main() {
         'mapOfSerializableField': {
           'c': {'x': 3}
         },
+        'enumField': 'a',
       };
 
       var a = A.fromJson(json);
@@ -36,6 +37,7 @@ void main() {
       expect(a.listOfSerializableField.single.x, 1);
       expect(a.setOfSerializableField.single.x, 2);
       expect(a.mapOfSerializableField['c']!.x, 3);
+      expect(a.enumField, EnumField.a);
 
       expect(a.toJson(), equals(json));
     });
@@ -229,7 +231,7 @@ class A {
 
   final Map<String, C> mapOfSerializableField;
 
-  final EnumA enumField;
+  final EnumField enumField;
 }
 
 @JsonCodable()
@@ -287,7 +289,7 @@ class F {
   final int fieldWithDollarSign$;
 }
 
-enum EnumA {
+enum EnumField {
   a,
   b;
 }

@@ -317,8 +317,8 @@ mixin _FromJson on _Shared {
     }
 
     // Follow type aliases until we reach an actual named type.
-    var classDecl = await type.classDeclaration(builder);
-    if (classDecl == null) {
+    var declaration = await type.findDeclaration(builder);
+    if (declaration == null) {
       return RawCode.fromString(
           "throw 'Unable to deserialize type ${type.code.debugString}'");
     }
@@ -331,7 +331,7 @@ mixin _FromJson on _Shared {
           ])
         : null;
 
-    if (classDecl.superclass?.identifier.name == 'Enum') {
+    if (declaration is EnumDeclaration) {
           return RawCode.fromParts([
             if (nullCheck != null) nullCheck,
             type.code,
@@ -344,8 +344,8 @@ mixin _FromJson on _Shared {
     }
 
     // Check for the supported core types, and deserialize them accordingly.
-    if (classDecl.library.uri == _dartCore) {
-      switch (classDecl.identifier.name) {
+    if (declaration.library.uri == _dartCore) {
+      switch (declaration.identifier.name) {
         case 'List':
           return RawCode.fromParts([
             if (nullCheck != null) nullCheck,
@@ -394,7 +394,7 @@ mixin _FromJson on _Shared {
     }
 
     // Otherwise, check if `classDecl` has a `fromJson` constructor.
-    final constructors = await builder.constructorsOf(classDecl);
+    final constructors = await builder.constructorsOf(declaration);
     final fromJson = constructors
         .firstWhereOrNull((c) => c.identifier.name == 'fromJson')
         ?.identifier;
@@ -595,8 +595,8 @@ mixin _ToJson on _Shared {
     }
 
     // Follow type aliases until we reach an actual named type.
-    var classDecl = await type.classDeclaration(builder);
-    if (classDecl == null) {
+    var declaration = await type.findDeclaration(builder);
+    if (declaration == null) {
       return RawCode.fromString(
           "throw 'Unable to serialize type ${type.code.debugString}'");
     }
@@ -609,7 +609,7 @@ mixin _ToJson on _Shared {
           ])
         : null;
 
-    if (classDecl.superclass?.identifier.name == 'Enum') {
+    if (declaration is EnumDeclaration) {
       return RawCode.fromParts([
         if (nullCheck != null) nullCheck,
         valueReference,
@@ -618,8 +618,8 @@ mixin _ToJson on _Shared {
     }
 
     // Check for the supported core types, and serialize them accordingly.
-    if (classDecl.library.uri == _dartCore) {
-      switch (classDecl.identifier.name) {
+    if (declaration.library.uri == _dartCore) {
+      switch (declaration.identifier.name) {
         case 'List' || 'Set':
           return RawCode.fromParts([
             if (nullCheck != null) nullCheck,
@@ -648,7 +648,7 @@ mixin _ToJson on _Shared {
     }
 
     // Next, check if it has a `toJson()` method and call that.
-    final methods = await builder.methodsOf(classDecl);
+    final methods = await builder.methodsOf(declaration);
     final toJson = methods
         .firstWhereOrNull((c) => c.identifier.name == 'toJson')
         ?.identifier;
@@ -815,7 +815,7 @@ extension on NamedTypeAnnotation {
   /// Follows the declaration of this type through any type aliases, until it
   /// reaches a [ClassDeclaration], or returns null if it does not bottom out on
   /// a class.
-  Future<ClassDeclaration?> classDeclaration(DefinitionBuilder builder) async {
+  Future<TypeDeclaration?> findDeclaration(DefinitionBuilder builder) async {
     var typeDecl = await builder.typeDeclarationOf(identifier);
     while (typeDecl is TypeAliasDeclaration) {
       final aliasedType = typeDecl.aliasedType;
@@ -830,10 +830,10 @@ extension on NamedTypeAnnotation {
       }
       typeDecl = await builder.typeDeclarationOf(aliasedType.identifier);
     }
-    if (typeDecl is! ClassDeclaration) {
+    if (typeDecl is! ClassDeclaration && typeDecl is! EnumDeclaration) {
       builder.report(Diagnostic(
           DiagnosticMessage(
-              'Only classes are supported as field types for serializable '
+              'Only classes and enums are supported as field types for serializable '
               'classes',
               target: asDiagnosticTarget),
           Severity.error));
