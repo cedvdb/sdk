@@ -338,7 +338,7 @@ mixin _FromJson on _Shared {
             '.values.byName(',
             jsonReference,
             ' as ',
-            type.code,
+            introspectionData.stringCode,
             ')'
           ]);
     }
