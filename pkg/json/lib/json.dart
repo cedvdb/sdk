@@ -332,15 +332,15 @@ mixin _FromJson on _Shared {
         : null;
 
     if (declaration is EnumDeclaration) {
-          return RawCode.fromParts([
-            if (nullCheck != null) nullCheck,
-            type.code,
-            '.values.byName(',
-            jsonReference,
-            ' as ',
-            introspectionData.stringCode,
-            ')'
-          ]);
+      return RawCode.fromParts([
+        if (nullCheck != null) nullCheck,
+        type.code,
+        '.values.byName(',
+        jsonReference,
+        ' as ',
+        introspectionData.stringCode,
+        ')'
+      ]);
     }
 
     // Check for the supported core types, and deserialize them accordingly.
@@ -608,6 +608,7 @@ mixin _ToJson on _Shared {
             ' == null ? null : ',
           ])
         : null;
+
 
     if (declaration is EnumDeclaration) {
       return RawCode.fromParts([
