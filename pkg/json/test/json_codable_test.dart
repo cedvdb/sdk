@@ -228,6 +228,8 @@ class A {
   final Set<C> setOfSerializableField;
 
   final Map<String, C> mapOfSerializableField;
+
+  final EnumA enumField;
 }
 
 @JsonCodable()
@@ -283,4 +285,9 @@ class E {
 @JsonCodable()
 class F {
   final int fieldWithDollarSign$;
+}
+
+enum EnumA {
+  a,
+  b;
 }

@@ -331,6 +331,18 @@ mixin _FromJson on _Shared {
           ])
         : null;
 
+    if (classDecl.superclass?.identifier.name == 'Enum') {
+          return RawCode.fromParts([
+            if (nullCheck != null) nullCheck,
+            type.code,
+            '.values.byName(',
+            jsonReference,
+            ' as ',
+            type.code,
+            ')'
+          ]);
+    }
+
     // Check for the supported core types, and deserialize them accordingly.
     if (classDecl.library.uri == _dartCore) {
       switch (classDecl.identifier.name) {
@@ -596,6 +608,14 @@ mixin _ToJson on _Shared {
             ' == null ? null : ',
           ])
         : null;
+
+    if (classDecl.superclass?.identifier.name == 'Enum') {
+      return RawCode.fromParts([
+        if (nullCheck != null) nullCheck,
+        valueReference,
+        '.name'
+      ]);
+    }
 
     // Check for the supported core types, and serialize them accordingly.
     if (classDecl.library.uri == _dartCore) {
