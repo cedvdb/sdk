@@ -318,6 +318,7 @@ class A {
   final Map<String, C> mapOfSerializableField;
 
   final EnumField enumField;
+
   final CustomStringSerialization customStringSerializationField;
 
   final CustomMapSerialization customMapSerializationField;

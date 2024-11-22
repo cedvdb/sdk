@@ -612,7 +612,7 @@ mixin _ToJson on _Shared {
     }
 
     // Follow type aliases until we reach an actual named type.
-    var declaration = await type.findDeclaration(builder);
+    var declaration = await (rawType as NamedTypeAnnotation).findDeclaration(builder);
     if (declaration == null) {
       return RawCode.fromString(
           "throw 'Unable to serialize type ${type.code.debugString}'");
@@ -626,14 +626,23 @@ mixin _ToJson on _Shared {
           ])
         : null;
 
+    if (type.identifier.name == 'EnumField') {
+      builder.report(Diagnostic(
+        DiagnosticMessage(
+            '${type.identifier.name} is enum ${declaration is EnumDeclaration}'),
+        Severity.info));
+    }
 
-    if (declaration is EnumDeclaration) {
+        
+    if ( declaration is EnumDeclaration) {
       return RawCode.fromParts([
         if (nullCheck != null) nullCheck,
         valueReference,
         '.name'
       ]);
     }
+
+
 
     // Check for the supported core types, and serialize them accordingly.
     if (declaration.library.uri == _dartCore) {
@@ -683,7 +692,7 @@ mixin _ToJson on _Shared {
     // Unsupported type, report an error and return valid code that throws.
     builder.report(Diagnostic(
         DiagnosticMessage(
-            'Unable to serialize type, it must be a native JSON type or a '
+            'Unable to serialize type ${type.identifier.name}, it must be a native JSON type or a '
             'type with a `Map<String, Object?> toJson()` method.',
             target: type.asDiagnosticTarget),
         Severity.error));
@@ -837,19 +846,20 @@ extension on NamedTypeAnnotation {
   /// a class.
   Future<TypeDeclaration?> findDeclaration(DefinitionBuilder builder) async {
     var typeDecl = await builder.typeDeclarationOf(identifier);
-    while (typeDecl is TypeAliasDeclaration) {
-      final aliasedType = typeDecl.aliasedType;
-      if (aliasedType is! NamedTypeAnnotation) {
-        builder.report(Diagnostic(
-            DiagnosticMessage(
-                'Only fields with named types are allowed on serializable '
-                'classes',
-                target: asDiagnosticTarget),
-            Severity.error));
-        return null;
-      }
-      typeDecl = await builder.typeDeclarationOf(aliasedType.identifier);
-    }
+
+    // while (typeDecl is TypeAliasDeclaration) {
+    //   final aliasedType = typeDecl.aliasedType;
+    //   if (aliasedType is! NamedTypeAnnotation) {
+    //     builder.report(Diagnostic(
+    //         DiagnosticMessage(
+    //             'Only fields with named types are allowed on serializable '
+    //             'classes',
+    //             target: asDiagnosticTarget),
+    //         Severity.error));
+    //     return null;
+    //   }
+    //   typeDecl = await builder.typeDeclarationOf(aliasedType.identifier);
+    // }
     if (typeDecl is! ClassDeclaration && typeDecl is! EnumDeclaration) {
       builder.report(Diagnostic(
           DiagnosticMessage(
