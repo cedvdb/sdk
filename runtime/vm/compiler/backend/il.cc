@@ -1103,7 +1103,16 @@ bool MathMinMaxInstr::AttributesEqual(const Instruction& other) const {
   auto const other_op = other.AsMathMinMax();
   ASSERT(other_op != nullptr);
   return (op_kind() == other_op->op_kind()) &&
-         (result_cid() == other_op->result_cid());
+         (representation() == other_op->representation());
+}
+
+Definition* MathMinMaxInstr::Canonicalize(FlowGraph* flow_graph) {
+  if (!HasUses()) return nullptr;
+  if (left()->definition()->OriginalDefinition() ==
+      right()->definition()->OriginalDefinition()) {
+    return left()->definition();
+  }
+  return this;
 }
 
 bool BinaryIntegerOpInstr::AttributesEqual(const Instruction& other) const {
@@ -2078,10 +2087,6 @@ bool BinarySmiOpInstr::ComputeCanDeoptimize() const {
   }
 }
 
-bool ShiftIntegerOpInstr::IsShiftCountInRange(int64_t max) const {
-  return RangeUtils::IsWithin(shift_range(), 0, max);
-}
-
 bool BinaryIntegerOpInstr::RightIsNonZero() const {
   if (right()->BindsToConstant()) {
     const auto& constant = right()->BoundConstant();
@@ -2091,6 +2096,15 @@ bool BinaryIntegerOpInstr::RightIsNonZero() const {
   return !RangeUtils::CanBeZero(right()->definition()->range());
 }
 
+bool BinaryIntegerOpInstr::RightIsPositive() const {
+  if (right()->BindsToConstant()) {
+    const auto& constant = right()->BoundConstant();
+    if (!constant.IsInteger()) return false;
+    return Integer::Cast(constant).Value() > 0;
+  }
+  return RangeUtils::IsPositive(right()->definition()->range());
+}
+
 bool BinaryIntegerOpInstr::RightIsPowerOfTwoConstant() const {
   if (!right()->BindsToConstant()) return false;
   const Object& constant = right()->BoundConstant();
@@ -2098,6 +2112,16 @@ bool BinaryIntegerOpInstr::RightIsPowerOfTwoConstant() const {
   const intptr_t int_value = Smi::Cast(constant).Value();
   ASSERT(int_value != kIntptrMin);
   return Utils::IsPowerOfTwo(Utils::Abs(int_value));
+}
+
+bool BinaryIntegerOpInstr::IsShiftCountInRange(int64_t max) const {
+  if (right()->BindsToConstant()) {
+    const auto& constant = right()->BoundConstant();
+    if (!constant.IsInteger()) return false;
+    const int64_t value = Integer::Cast(constant).Value();
+    return (0 <= value) && (value <= max);
+  }
+  return RangeUtils::IsWithin(right()->definition()->range(), 0, max);
 }
 
 static intptr_t RepresentationBits(Representation r) {
@@ -2283,32 +2307,10 @@ BinaryIntegerOpInstr* BinaryIntegerOpInstr::Make(Representation representation,
       op = new BinaryInt32OpInstr(op_kind, left, right, deopt_id);
       break;
     case kUnboxedUint32:
-      if ((op_kind == Token::kSHL) || (op_kind == Token::kSHR) ||
-          (op_kind == Token::kUSHR)) {
-        if (CompilerState::Current().is_aot()) {
-          op = new ShiftUint32OpInstr(op_kind, left, right, deopt_id,
-                                      right_range);
-        } else {
-          op = new SpeculativeShiftUint32OpInstr(op_kind, left, right, deopt_id,
-                                                 right_range);
-        }
-      } else {
-        op = new BinaryUint32OpInstr(op_kind, left, right, deopt_id);
-      }
+      op = new BinaryUint32OpInstr(op_kind, left, right, deopt_id);
       break;
     case kUnboxedInt64:
-      if ((op_kind == Token::kSHL) || (op_kind == Token::kSHR) ||
-          (op_kind == Token::kUSHR)) {
-        if (CompilerState::Current().is_aot()) {
-          op = new ShiftInt64OpInstr(op_kind, left, right, deopt_id,
-                                     right_range);
-        } else {
-          op = new SpeculativeShiftInt64OpInstr(op_kind, left, right, deopt_id,
-                                                right_range);
-        }
-      } else {
-        op = new BinaryInt64OpInstr(op_kind, left, right, deopt_id);
-      }
+      op = new BinaryInt64OpInstr(op_kind, left, right, deopt_id);
       break;
     default:
       UNREACHABLE();
@@ -2395,6 +2397,20 @@ Definition* BinaryIntegerOpInstr::Canonicalize(FlowGraph* flow_graph) {
     SetInputAt(1, l);
   }
 
+  if (left()->definition() == right()->definition()) {
+    switch (op_kind()) {
+      case Token::kBIT_AND:
+      case Token::kBIT_OR:
+        return left()->definition();
+      case Token::kBIT_XOR:
+      case Token::kSUB:
+        return flow_graph->TryCreateConstantReplacementFor(this,
+                                                           Object::smi_zero());
+      default:
+        break;
+    }
+  }
+
   int64_t rhs;
   if (!Evaluator::ToIntegerConstant(right(), &rhs)) {
     return this;
@@ -2430,22 +2446,13 @@ Definition* BinaryIntegerOpInstr::Canonicalize(FlowGraph* flow_graph) {
         return right()->definition();
       } else if ((rhs > 0) && Utils::IsPowerOfTwo(rhs)) {
         const int64_t shift_amount = Utils::ShiftForPowerOfTwo(rhs);
-        const Representation shift_amount_rep =
-            CompilerState::Current().is_aot() ? kUnboxedInt64 : kTagged;
         ConstantInstr* constant_shift_amount = flow_graph->GetConstant(
-            Smi::Handle(Smi::New(shift_amount)), shift_amount_rep);
+            Smi::Handle(Smi::New(shift_amount)), representation());
         BinaryIntegerOpInstr* shift = BinaryIntegerOpInstr::Make(
             representation(), Token::kSHL, left()->CopyWithType(),
             new Value(constant_shift_amount), GetDeoptId(), can_overflow(),
             is_truncating(), range());
         if (shift != nullptr) {
-          // Assign a range to the shift factor, just in case range
-          // analysis no longer runs after this rewriting.
-          if (auto shift_with_range = shift->AsShiftIntegerOp()) {
-            shift_with_range->set_shift_range(
-                new Range(RangeBoundary::FromConstant(shift_amount),
-                          RangeBoundary::FromConstant(shift_amount)));
-          }
           if (!MayThrow()) {
             ASSERT(!shift->MayThrow());
           }
@@ -3189,7 +3196,8 @@ Definition* UnboxLaneInstr::Canonicalize(FlowGraph* flow_graph) {
 
 bool BoxIntegerInstr::ValueFitsSmi() const {
   Range* range = value()->definition()->range();
-  return RangeUtils::Fits(range, RangeBoundary::kRangeBoundarySmi);
+  return RangeUtils::IsWithin(range, compiler::target::kSmiMin,
+                              compiler::target::kSmiMax);
 }
 
 Definition* BoxIntegerInstr::Canonicalize(FlowGraph* flow_graph) {
@@ -3444,22 +3452,13 @@ Definition* IntConverterInstr::Canonicalize(FlowGraph* flow_graph) {
   return this;
 }
 
-// Tests for a FP condition that cannot be negated
-// (to preserve NaN semantics).
-static bool IsFpCompare(ConditionInstr* cond) {
-  if (cond->IsRelationalOp()) {
-    return cond->operation_cid() == kDoubleCid;
-  }
-  return false;
-}
-
 Definition* BooleanNegateInstr::Canonicalize(FlowGraph* flow_graph) {
   Definition* defn = value()->definition();
   // Convert e.g. !(x > y) into (x <= y) for non-FP x, y.
   if (defn->IsCondition() && defn->HasOnlyUse(value()) &&
       defn->Type()->ToCid() == kBoolCid) {
     ConditionInstr* cond = defn->AsCondition();
-    if (!IsFpCompare(cond)) {
+    if (cond->CanBeNegated()) {
       cond->NegateCondition();
       return defn;
     }
@@ -3542,7 +3541,7 @@ static Definition* CanonicalizeStrictCompare(StrictCompareInstr* compare,
   // We now have `e !== true` or `e === false`: these cases require
   // negation.
   if (auto cond = other_defn->AsCondition()) {
-    if (other_defn->HasOnlyUse(other) && !IsFpCompare(cond)) {
+    if (other_defn->HasOnlyUse(other) && cond->CanBeNegated()) {
       *negated = true;
       return other_defn;
     }
@@ -3561,7 +3560,7 @@ static bool IsSingleUseUnboxOrConstant(Value* use) {
 static ConditionInstr* CanonicalizeEqualityCompare(EqualityCompareInstr* instr,
                                                    FlowGraph* flow_graph) {
   if (instr->is_null_aware()) {
-    ASSERT(instr->operation_cid() == kMintCid);
+    ASSERT(instr->input_representation() == kTagged);
     // Select more efficient instructions based on operand types.
     CompileType* left_type = instr->left()->Type();
     CompileType* right_type = instr->right()->Type();
@@ -3579,21 +3578,20 @@ static ConditionInstr* CanonicalizeEqualityCompare(EqualityCompareInstr* instr,
       if (!left_type->is_nullable() && !right_type->is_nullable() &&
           flow_graph->unmatched_representations_allowed()) {
         instr->set_null_aware(false);
+        instr->set_input_representation(kUnboxedInt64);
       }
     }
-  } else {
-    if ((instr->operation_cid() == kMintCid) &&
-        IsSingleUseUnboxOrConstant(instr->left()) &&
-        IsSingleUseUnboxOrConstant(instr->right()) &&
-        (instr->left()->Type()->IsNullableSmi() ||
-         instr->right()->Type()->IsNullableSmi()) &&
-        flow_graph->unmatched_representations_allowed()) {
-      return new StrictCompareInstr(
-          instr->source(),
-          (instr->kind() == Token::kEQ) ? Token::kEQ_STRICT : Token::kNE_STRICT,
-          instr->left()->CopyWithType(), instr->right()->CopyWithType(),
-          /*needs_number_check=*/false, DeoptId::kNone);
-    }
+  } else if ((instr->input_representation() == kUnboxedInt64) &&
+             IsSingleUseUnboxOrConstant(instr->left()) &&
+             IsSingleUseUnboxOrConstant(instr->right()) &&
+             (instr->left()->Type()->IsNullableSmi() ||
+              instr->right()->Type()->IsNullableSmi()) &&
+             flow_graph->unmatched_representations_allowed()) {
+    return new StrictCompareInstr(
+        instr->source(),
+        (instr->kind() == Token::kEQ) ? Token::kEQ_STRICT : Token::kNE_STRICT,
+        instr->left()->CopyWithType(), instr->right()->CopyWithType(),
+        /*needs_number_check=*/false, DeoptId::kNone);
   }
   return instr;
 }
@@ -3684,38 +3682,33 @@ Instruction* BranchInstr::Canonicalize(FlowGraph* flow_graph) {
   }
 
   if (auto* equality = condition()->AsEqualityCompare()) {
-    if (equality->operation_cid() == kSmiCid ||
-        equality->operation_cid() == kMintCid) {
-      const auto representation =
-          equality->operation_cid() == kSmiCid ? kTagged : kUnboxedInt64;
-      if (TestIntInstr::IsSupported(representation)) {
-        BinaryIntegerOpInstr* bit_and = nullptr;
-        bool negate = false;
-        if (RecognizeTestPattern(equality->left(), equality->right(),
-                                 &negate)) {
-          bit_and = equality->left()->definition()->AsBinaryIntegerOp();
-        } else if (RecognizeTestPattern(equality->right(), equality->left(),
-                                        &negate)) {
-          bit_and = equality->right()->definition()->AsBinaryIntegerOp();
+    const auto representation = equality->input_representation();
+    if (TestIntInstr::IsSupported(representation)) {
+      BinaryIntegerOpInstr* bit_and = nullptr;
+      bool negate = false;
+      if (RecognizeTestPattern(equality->left(), equality->right(), &negate)) {
+        bit_and = equality->left()->definition()->AsBinaryIntegerOp();
+      } else if (RecognizeTestPattern(equality->right(), equality->left(),
+                                      &negate)) {
+        bit_and = equality->right()->definition()->AsBinaryIntegerOp();
+      }
+      if (bit_and != nullptr) {
+        if (FLAG_trace_optimization && flow_graph->should_print()) {
+          THR_Print("Merging test integer v%" Pd "\n",
+                    bit_and->ssa_temp_index());
         }
-        if (bit_and != nullptr) {
-          if (FLAG_trace_optimization && flow_graph->should_print()) {
-            THR_Print("Merging test integer v%" Pd "\n",
-                      bit_and->ssa_temp_index());
-          }
-          TestIntInstr* test = new TestIntInstr(
-              equality->source(),
-              negate ? Token::NegateComparison(equality->kind())
-                     : equality->kind(),
-              representation, bit_and->left()->Copy(zone),
-              bit_and->right()->Copy(zone));
-          ASSERT(!CanDeoptimize());
-          RemoveEnvironment();
-          flow_graph->CopyDeoptTarget(this, bit_and);
-          SetCondition(test);
-          bit_and->RemoveFromGraph();
-          return this;
-        }
+        TestIntInstr* test =
+            new TestIntInstr(equality->source(),
+                             negate ? Token::NegateComparison(equality->kind())
+                                    : equality->kind(),
+                             representation, bit_and->left()->Copy(zone),
+                             bit_and->right()->Copy(zone));
+        ASSERT(!CanDeoptimize());
+        RemoveEnvironment();
+        flow_graph->CopyDeoptTarget(this, bit_and);
+        SetCondition(test);
+        bit_and->RemoveFromGraph();
+        return this;
       }
     }
 
@@ -3806,7 +3799,6 @@ TestCidsInstr::TestCidsInstr(const InstructionSource& source,
     : TemplateCondition(source, kind, deopt_id), cid_results_(cid_results) {
   ASSERT((kind == Token::kIS) || (kind == Token::kISNOT));
   SetInputAt(0, value);
-  set_operation_cid(kObjectCid);
 #ifdef DEBUG
   ASSERT(cid_results[0] == kSmiCid);
   if (deopt_id == DeoptId::kNone) {
@@ -3859,7 +3851,6 @@ TestRangeInstr::TestRangeInstr(const InstructionSource& source,
   ASSERT(value_representation == kTagged ||
          value_representation == kUnboxedUword);
   SetInputAt(0, value);
-  set_operation_cid(kObjectCid);
 }
 
 Definition* TestRangeInstr::Canonicalize(FlowGraph* flow_graph) {
@@ -5013,7 +5004,7 @@ StrictCompareInstr::StrictCompareInstr(const InstructionSource& source,
                                        Value* right,
                                        bool needs_number_check,
                                        intptr_t deopt_id)
-    : ComparisonInstr(source, kind, left, right, deopt_id),
+    : ComparisonInstr(source, kind, left, right, kTagged, deopt_id),
       needs_number_check_(needs_number_check) {
   ASSERT((kind == Token::kEQ_STRICT) || (kind == Token::kNE_STRICT));
 }
@@ -6510,13 +6501,14 @@ ConditionInstr* DoubleTestOpInstr::CopyWithNewOperands(Value* new_left,
 ConditionInstr* EqualityCompareInstr::CopyWithNewOperands(Value* new_left,
                                                           Value* new_right) {
   return new EqualityCompareInstr(source(), kind(), new_left, new_right,
-                                  operation_cid(), deopt_id(), is_null_aware());
+                                  input_representation(), deopt_id(),
+                                  is_null_aware());
 }
 
 ConditionInstr* RelationalOpInstr::CopyWithNewOperands(Value* new_left,
                                                        Value* new_right) {
   return new RelationalOpInstr(source(), kind(), new_left, new_right,
-                               operation_cid(), deopt_id());
+                               input_representation(), deopt_id());
 }
 
 ConditionInstr* StrictCompareInstr::CopyWithNewOperands(Value* new_left,
@@ -6572,16 +6564,24 @@ bool IfThenElseInstr::Supports(ConditionInstr* condition,
                                Value* v1,
                                Value* v2) {
   bool is_smi_result = v1->BindsToSmiConstant() && v2->BindsToSmiConstant();
-  if (condition->IsStrictCompare()) {
-    // Strict comparison with number checks calls a stub and is not supported
-    // by if-conversion.
-    return is_smi_result && !condition->AsStrictCompare()->needs_number_check();
-  }
-  if (condition->operation_cid() != kSmiCid) {
-    // Non-smi comparisons are not supported by if-conversion.
+  if (!is_smi_result) {
     return false;
   }
-  return is_smi_result;
+  if (auto* strict_compare = condition->AsStrictCompare()) {
+    // Strict comparison with number checks calls a stub and is not supported
+    // by if-conversion.
+    return !strict_compare->needs_number_check();
+  }
+  if (auto* equality = condition->AsEqualityCompare()) {
+    // Non-smi comparisons are not supported by if-conversion.
+    return (equality->input_representation() == kTagged) &&
+           !equality->is_null_aware();
+  }
+  if (auto* comparison = condition->AsRelationalOp()) {
+    // Non-smi comparisons are not supported by if-conversion.
+    return comparison->input_representation() == kTagged;
+  }
+  return false;
 }
 
 bool PhiInstr::IsRedundant() const {
@@ -7119,13 +7119,7 @@ void MemoryCopyInstr::EmitUnrolledCopy(FlowGraphCompiler* compiler,
   }
 
   if (FLAG_target_memory_sanitizer) {
-#if defined(TARGET_ARCH_X64)
-    RegisterSet kVolatileRegisterSet(CallingConventions::kVolatileCpuRegisters,
-                                     CallingConventions::kVolatileXmmRegisters);
-    __ PushRegisters(kVolatileRegisterSet);
     __ MsanUnpoison(dest_reg, num_bytes);
-    __ PopRegisters(kVolatileRegisterSet);
-#endif
   }
 }
 #endif

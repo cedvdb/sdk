@@ -38,7 +38,7 @@ class RemoveUnusedElement extends _RemoveUnused {
     }
 
     Element2? element;
-    if (node is FragmentDeclaration) {
+    if (node is Declaration) {
       element = node.declaredFragment?.element;
     }
     if (element == null) {
@@ -252,10 +252,8 @@ class _ElementReferenceCollector extends RecursiveAstVisitor<void> {
   @override
   void visitFieldFormalParameter(FieldFormalParameter node) {
     var declaredElement = node.declaredFragment!.element;
-    if (declaredElement is FieldFormalParameterElement2) {
-      if (declaredElement.field2 == element) {
-        references.add(node);
-      }
+    if (declaredElement.field2 == element) {
+      references.add(node);
     }
 
     super.visitFieldFormalParameter(node);
@@ -275,11 +273,7 @@ class _ElementReferenceCollector extends RecursiveAstVisitor<void> {
     var staticElement = node.writeOrReadElement2;
     if (staticElement == element) {
       references.add(node);
-    } else if (staticElement is GetterElement) {
-      if (staticElement.variable3 == element) {
-        references.add(node);
-      }
-    } else if (staticElement is SetterElement) {
+    } else if (staticElement is PropertyAccessorElement2) {
       if (staticElement.variable3 == element) {
         references.add(node);
       }

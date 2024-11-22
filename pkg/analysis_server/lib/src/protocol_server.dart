@@ -302,16 +302,15 @@ Location? newLocation_fromElement2(engine.Element2? element) {
   if (element == null) {
     return null;
   }
-  if (element is engine.FragmentedElement) {
-    var fragment = (element as engine.FragmentedElement).firstFragment;
+    if (element is engine.FormalParameterElement &&
+        element.enclosingElement2 == null) {
+      return null;
+    }
+    var fragment = element.firstFragment;
     var offset = fragment.nameOffset2 ?? 0;
     var length = fragment.name2?.length ?? 0;
     var range = engine.SourceRange(offset, length);
     return _locationForArgs2(fragment, range);
-  } else {
-    assert(false, 'Could not convert ${element.runtimeType} to Location.');
-    return null;
-  }
 }
 
 /// Create a Location based on an [engine.SearchMatch].

@@ -133,10 +133,10 @@ PrefixedIdentifier
   identifier: SimpleIdentifier
     token: A
     staticElement: package:test/a.dart::<fragment>::@typeAlias::A
-    element: package:test/a.dart::<fragment>::@typeAlias::A#element
+    element: package:test/a.dart::@typeAlias::A
     staticType: Type
   staticElement: package:test/a.dart::<fragment>::@typeAlias::A
-  element: package:test/a.dart::<fragment>::@typeAlias::A#element
+  element: package:test/a.dart::@typeAlias::A
   staticType: Type
 ''');
   }
@@ -414,7 +414,7 @@ PrefixedIdentifier
   prefix: SimpleIdentifier
     token: B
     staticElement: <testLibraryFragment>::@typeAlias::B
-    element: <testLibraryFragment>::@typeAlias::B#element
+    element: <testLibrary>::@typeAlias::B
     staticType: null
   period: .
   identifier: SimpleIdentifier
@@ -444,12 +444,14 @@ int Function() foo() {
 }
 ''');
 
-    var identifier = findNode.simple('a;');
-    assertElement(
-      identifier,
-      findElement.importFind('package:test/a.dart').topGet('a'),
-    );
-    assertType(identifier, 'A');
+    var node = findNode.simple('a;');
+    assertResolvedNodeText(node, r'''
+SimpleIdentifier
+  token: a
+  staticElement: package:test/a.dart::<fragment>::@getter::a
+  element: package:test/a.dart::<fragment>::@getter::a#element
+  staticType: A
+''');
   }
 
   test_implicitCall_tearOff_nullable() async {
@@ -470,12 +472,14 @@ int Function() foo() {
       error(CompileTimeErrorCode.RETURN_OF_INVALID_TYPE_FROM_FUNCTION, 50, 1),
     ]);
 
-    var identifier = findNode.simple('a;');
-    assertElement(
-      identifier,
-      findElement.importFind('package:test/a.dart').topGet('a'),
-    );
-    assertType(identifier, 'A?');
+    var node = findNode.simple('a;');
+    assertResolvedNodeText(node, r'''
+SimpleIdentifier
+  token: a
+  staticElement: package:test/a.dart::<fragment>::@getter::a
+  element: package:test/a.dart::<fragment>::@getter::a#element
+  staticType: A?
+''');
   }
 
   test_importPrefix_class() async {
@@ -536,10 +540,10 @@ PrefixedIdentifier
   identifier: SimpleIdentifier
     token: F
     staticElement: package:test/a.dart::<fragment>::@typeAlias::F
-    element: package:test/a.dart::<fragment>::@typeAlias::F#element
+    element: package:test/a.dart::@typeAlias::F
     staticType: Type
   staticElement: package:test/a.dart::<fragment>::@typeAlias::F
-  element: package:test/a.dart::<fragment>::@typeAlias::F#element
+  element: package:test/a.dart::@typeAlias::F
   staticType: Type
 ''');
   }
@@ -1265,10 +1269,10 @@ PrefixedIdentifier
   identifier: SimpleIdentifier
     token: A
     staticElement: package:test/a.dart::<fragment>::@typeAlias::A
-    element: package:test/a.dart::<fragment>::@typeAlias::A#element
+    element: package:test/a.dart::@typeAlias::A
     staticType: Type
   staticElement: package:test/a.dart::<fragment>::@typeAlias::A
-  element: package:test/a.dart::<fragment>::@typeAlias::A#element
+  element: package:test/a.dart::@typeAlias::A
   staticType: Type
 ''');
   }

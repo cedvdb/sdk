@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library fasta.source_library_builder;
-
 import 'dart:convert' show jsonEncode, utf8;
 import 'dart:typed_data';
 
@@ -61,7 +59,7 @@ import '../kernel/utils.dart'
         compareProcedures,
         exportDynamicSentinel,
         exportNeverSentinel,
-        toKernelCombinators,
+        toCombinators,
         unserializableExportName;
 import 'builder_factory.dart';
 import 'class_declaration.dart';

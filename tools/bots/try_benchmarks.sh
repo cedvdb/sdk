@@ -170,8 +170,8 @@ EOF
     out/ReleaseIA32/dart --profile-period=10000 hello.dart
     out/ReleaseIA32/dart pkg/front_end/tool/perf.dart parse hello.dart
     out/ReleaseIA32/dart pkg/front_end/tool/perf.dart scan hello.dart
-    out/ReleaseIA32/dart pkg/front_end/tool/fasta_perf.dart kernel_gen_e2e hello.dart
-    out/ReleaseIA32/dart pkg/front_end/tool/fasta_perf.dart scan hello.dart
+    out/ReleaseIA32/dart pkg/front_end/tool/cfe_perf.dart kernel_gen_e2e hello.dart
+    out/ReleaseIA32/dart pkg/front_end/tool/cfe_perf.dart scan hello.dart
     out/ReleaseIA32/run_vm_tests --dfe=out/ReleaseIA32/kernel-service.dart.snapshot InitialRSS
     out/ReleaseIA32/run_vm_tests --dfe=out/ReleaseIA32/kernel-service.dart.snapshot KernelServiceCompileAll
     out/ReleaseIA32/run_vm_tests --dfe=out/ReleaseIA32/kernel-service.dart.snapshot UseDartApi
@@ -181,7 +181,7 @@ EOF
     rm -rf tmp
   elif [ "$command" = linux-x64-build ]; then
     # NOTE: These are duplicated in tools/bots/test_matrix.json, keep in sync.
-    ./tools/build.py --mode=release --arch=x64 create_sdk runtime gen_snapshot dartaotruntime dart_precompiled_runtime dart2js_platform.dill dart2js_platform_unsound.dill kernel-service.dart.snapshot ddc_stable_test ddc_canary_test dart2wasm_benchmark
+    ./tools/build.py --mode=release --arch=x64 create_sdk runtime gen_snapshot dartaotruntime dart2js_platform.dill dart2js_platform_unsound.dill kernel-service.dart.snapshot ddc_stable_test ddc_canary_test dart2wasm_benchmark
   elif [ "$command" = linux-x64-archive ]; then
     export GZIP=-1
     strip -w \
@@ -260,25 +260,6 @@ EOF
       -K '_ZN4dart7Version4str_E' \
       -K '_ZN4dart7Version7commit_E' \
       -K '_ZN4dart9Bootstrap*_paths_E' out/ReleaseX64/dartaotruntime
-    strip -w \
-      -K 'kDartVmSnapshotData' \
-      -K 'kDartVmSnapshotInstructions' \
-      -K 'kDartCoreIsolateSnapshotData' \
-      -K 'kDartCoreIsolateSnapshotInstructions' \
-      -K '_ZN4dart3bin26observatory_assets_archiveE' \
-      -K '_ZN4dart3bin30observatory_assets_archive_lenE' \
-      -K '_ZN4dart3bin7Builtin22_builtin_source_paths_E' \
-      -K '_ZN4dart3bin7Builtin*_paths_E' \
-      -K '_ZN4dart3binL17vm_snapshot_data_E' \
-      -K '_ZN4dart3binL24isolate_snapshot_buffer_E' \
-      -K '_ZN4dart3binL27core_isolate_snapshot_data_E' \
-      -K '_ZN4dart3binL27observatory_assets_archive_E' \
-      -K '_ZN4dart3binL27vm_isolate_snapshot_buffer_E' \
-      -K '_ZN4dart3binL29core_isolate_snapshot_buffer_E' \
-      -K '_ZN4dart7Version14snapshot_hash_E' \
-      -K '_ZN4dart7Version4str_E' \
-      -K '_ZN4dart7Version7commit_E' \
-      -K '_ZN4dart9Bootstrap*_paths_E' out/ReleaseX64/dart_precompiled_runtime
     tar -czf linux-x64.tar.gz \
       --exclude .git \
       --exclude .gitignore \
@@ -301,7 +282,6 @@ EOF
       third_party/d8/linux/x64 \
       third_party/firefox_jsshell/ \
       out/ReleaseX64/dartaotruntime \
-      out/ReleaseX64/dart_precompiled_runtime \
       out/ReleaseX64/gen/utils/ddc \
       out/ReleaseX64/ddc_outline_unsound.dill \
       out/ReleaseX64/ddc_outline.dill \
@@ -343,12 +323,8 @@ EOF
     third_party/d8/linux/x64/d8 --stack_size=1024 sdk/lib/_internal/js_runtime/lib/preambles/seal_native_object.js sdk/lib/_internal/js_runtime/lib/preambles/d8.js out.js
     out/ReleaseX64/dart-sdk/bin/dart compile js --no-sound-null-safety --platform-binaries=out/ReleaseX64 --benchmarking-x --out=out.js -m hello.dart
     third_party/d8/linux/x64/d8 --stack_size=1024 sdk/lib/_internal/js_runtime/lib/preambles/seal_native_object.js sdk/lib/_internal/js_runtime/lib/preambles/d8.js out.js
-    out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --no-sound-null-safety hello.dart
-    out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --no-sound-null-safety --mode=compile --compile-vm-options=--print-metrics --out out.js hello.dart
     out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --sound-null-safety hello.dart
     out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --sound-null-safety --mode=compile --compile-vm-options=--print-metrics --out out.js hello.dart
-    out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --canary --no-sound-null-safety hello.dart
-    out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --canary --no-sound-null-safety --mode=compile --compile-vm-options=--print-metrics --out out.js hello.dart
     out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --canary --sound-null-safety hello.dart
     out/ReleaseX64/dart-sdk/bin/dart pkg/dev_compiler/tool/ddb -r d8 -b third_party/d8/linux/x64/d8 --canary --sound-null-safety --mode=compile --compile-vm-options=--print-metrics --out out.js hello.dart
     out/ReleaseX64/dart-sdk/bin/dart pkg/analysis_server/benchmark/benchmarks.dart run --quick --repeat 1 analysis-server-cold

@@ -100,7 +100,7 @@ class _Visitor extends SimpleAstVisitor<void> {
 
   @override
   void visitFunctionExpression(FunctionExpression node) {
-    var element = node.declaredElement2 ?? node.declaredFragment?.element;
+    var element = node.declaredFragment?.element;
     if (element?.name3 != '' || node.body.keyword != null) {
       return;
     }
@@ -140,8 +140,7 @@ class _Visitor extends SimpleAstVisitor<void> {
       return;
     }
 
-    var functionElement =
-        node.declaredElement2 ?? node.declaredFragment?.element;
+    var functionElement = node.declaredFragment?.element;
 
     var nodeType = functionElement?.type;
     var invocationType = expression.constructorName.element?.type;
@@ -235,8 +234,7 @@ extension on Expression? {
 extension on Element2? {
   /// Returns whether this is a `final` variable or property and not `late`.
   bool get isFinal => switch (this) {
-        GetterElement(:var isSynthetic, :var variable3?) ||
-        SetterElement(:var isSynthetic, :var variable3?) =>
+        PropertyAccessorElement2(:var isSynthetic, :var variable3?) =>
           isSynthetic && variable3.isFinal && !variable3.isLate,
         VariableElement2(:var isLate, :var isFinal) => isFinal && !isLate,
         // TODO(pq): [element model] this preserves existing v1 semantics but looks fishy

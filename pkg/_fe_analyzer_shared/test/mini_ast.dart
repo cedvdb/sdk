@@ -2897,9 +2897,9 @@ class MiniAstOperations
 
   @override
   TypeDeclarationKind? getTypeDeclarationKindInternal(Type type) {
-    if (isInterfaceType(SharedTypeView(type))) {
+    if (isInterfaceTypeInternal(type)) {
       return TypeDeclarationKind.interfaceDeclaration;
-    } else if (isExtensionType(SharedTypeView(type))) {
+    } else if (isExtensionTypeInternal(type)) {
       return TypeDeclarationKind.extensionTypeDeclaration;
     } else {
       return null;
@@ -2951,16 +2951,23 @@ class MiniAstOperations
   }
 
   @override
-  bool isDartCoreFunction(SharedTypeView<Type> type) {
-    Type unwrappedType = type.unwrapTypeView();
-    return unwrappedType is PrimaryType &&
-        unwrappedType.nullabilitySuffix == NullabilitySuffix.none &&
-        unwrappedType.name == 'Function' &&
-        unwrappedType.args.isEmpty;
+  bool isDartCoreFunctionInternal(Type type) {
+    return type is PrimaryType &&
+        type.nullabilitySuffix == NullabilitySuffix.none &&
+        type.name == 'Function' &&
+        type.args.isEmpty;
   }
 
   @override
-  bool isExtensionType(SharedTypeView<Type> type) {
+  bool isDartCoreRecordInternal(Type type) {
+    return type is PrimaryType &&
+        type.nullabilitySuffix == NullabilitySuffix.none &&
+        type.name == 'Record' &&
+        type.args.isEmpty;
+  }
+
+  @override
+  bool isExtensionTypeInternal(Type type) {
     // TODO(cstefantsova): Add the support for extension types in the mini ast
     // testing framework.
     return false;
@@ -2972,9 +2979,8 @@ class MiniAstOperations
   }
 
   @override
-  bool isInterfaceType(SharedTypeView<Type> type) {
-    Type unwrappedType = type.unwrapTypeView();
-    return unwrappedType is PrimaryType && unwrappedType.isInterfaceType;
+  bool isInterfaceTypeInternal(Type type) {
+    return type is PrimaryType && type.isInterfaceType;
   }
 
   @override
@@ -2982,37 +2988,6 @@ class MiniAstOperations
     Type unwrappedType = type.unwrapTypeView();
     return unwrappedType is NeverType &&
         unwrappedType.nullabilitySuffix == NullabilitySuffix.none;
-  }
-
-  @override
-  bool isNonNullable(SharedTypeSchemaView<Type> type) {
-    Type unwrappedType = type.unwrapTypeSchemaView();
-    if (unwrappedType is DynamicType ||
-        unwrappedType is SharedUnknownTypeStructure ||
-        unwrappedType is VoidType ||
-        unwrappedType is NullType) {
-      return false;
-    } else if (unwrappedType
-        case TypeParameterType(
-          :var promotion,
-          nullabilitySuffix: NullabilitySuffix.none
-        )) {
-      return promotion != null &&
-          isNonNullable(SharedTypeSchemaView(promotion));
-    } else if (type.nullabilitySuffix == NullabilitySuffix.question) {
-      return false;
-    } else if (matchFutureOrInternal(unwrappedType) case Type typeArgument?) {
-      return isNonNullable(SharedTypeSchemaView(typeArgument));
-    }
-    // TODO(cstefantsova): Update to a fast-pass implementation when the
-    // mini-ast testing framework supports looking up superinterfaces of
-    // extension types or looking up bounds of type parameters.
-    return _typeSystem.isSubtype(NullType.instance, unwrappedType);
-  }
-
-  @override
-  bool isNull(SharedTypeView<Type> type) {
-    return type.unwrapTypeView() is NullType;
   }
 
   @override
@@ -3117,8 +3092,8 @@ class MiniAstOperations
   }
 
   @override
-  TypeParameter? matchInferableParameter(SharedTypeView<Type> type) {
-    if (type.unwrapTypeView()
+  TypeParameter? matchInferableParameterInternal(Type type) {
+    if (type
         case TypeParameterType(
           :var typeParameter,
           nullabilitySuffix: NullabilitySuffix.none
@@ -3183,23 +3158,22 @@ class MiniAstOperations
   }
 
   @override
-  TypeDeclarationMatchResult<Type, String, Type>? matchTypeDeclarationType(
-      SharedTypeView<Type> type) {
-    Type unwrappedType = type.unwrapTypeView();
-    if (unwrappedType is! PrimaryType) return null;
+  TypeDeclarationMatchResult<Type, String, Type>?
+      matchTypeDeclarationTypeInternal(Type type) {
+    if (type is! PrimaryType) return null;
     TypeDeclarationKind typeDeclarationKind;
-    if (unwrappedType.isInterfaceType) {
+    if (type.isInterfaceType) {
       typeDeclarationKind = TypeDeclarationKind.interfaceDeclaration;
-    } else if (isExtensionType(type)) {
+    } else if (isExtensionTypeInternal(type)) {
       typeDeclarationKind = TypeDeclarationKind.extensionTypeDeclaration;
     } else {
       return null;
     }
     return new TypeDeclarationMatchResult(
         typeDeclarationKind: typeDeclarationKind,
-        typeDeclaration: unwrappedType.name,
-        typeDeclarationType: unwrappedType,
-        typeArguments: unwrappedType.args);
+        typeDeclaration: type.name,
+        typeDeclarationType: type,
+        typeArguments: type.args);
   }
 
   @override
@@ -3270,9 +3244,8 @@ class MiniAstOperations
       property.whyNotPromotable;
 
   @override
-  SharedTypeView<Type> withNullabilitySuffix(
-      SharedTypeView<Type> type, NullabilitySuffix modifier) {
-    return SharedTypeView(type.unwrapTypeView().withNullability(modifier));
+  Type withNullabilitySuffixInternal(Type type, NullabilitySuffix modifier) {
+    return type.withNullability(modifier);
   }
 
   @override
@@ -3280,6 +3253,74 @@ class MiniAstOperations
       List<SharedTypeParameterStructure<Type>> typeParametersToEliminate) {
     // TODO(paulberry): Implement greatest closure of types in mini ast.
     throw UnimplementedError();
+  }
+
+  @override
+  Type leastClosureOfTypeInternal(Type type,
+      List<SharedTypeParameterStructure<Type>> typeParametersToEliminate) {
+    // TODO(paulberry): Implement greatest closure of types in mini ast.
+    throw UnimplementedError();
+  }
+
+  @override
+  Type? matchTypeParameterBoundInternal(Type type) {
+    if (type
+        case TypeParameterType(
+          :var promotion,
+          :var typeParameter,
+          nullabilitySuffix: NullabilitySuffix.none
+        )) {
+      return promotion ?? typeParameter.bound;
+    } else {
+      return null;
+    }
+  }
+
+  @override
+  bool isNonNullableInternal(Type type) {
+    Type unwrappedType = type;
+    if (unwrappedType is DynamicType ||
+        unwrappedType is SharedUnknownTypeStructure ||
+        unwrappedType is VoidType ||
+        unwrappedType is NullType ||
+        unwrappedType is InvalidType) {
+      return false;
+    } else if (unwrappedType
+        case TypeParameterType(
+          :var promotion,
+          :var typeParameter,
+          nullabilitySuffix: NullabilitySuffix.none
+        )) {
+      if (promotion != null) {
+        return isNonNullableInternal(promotion);
+      } else {
+        return isNonNullableInternal(typeParameter.bound);
+      }
+    } else if (type.nullabilitySuffix == NullabilitySuffix.question) {
+      return false;
+    } else if (matchFutureOrInternal(unwrappedType) case Type typeArgument?) {
+      return isNonNullableInternal(typeArgument);
+    }
+    return true;
+  }
+
+  @override
+  bool isNullableInternal(Type type) {
+    Type unwrappedType = type;
+    if (unwrappedType is DynamicType ||
+        unwrappedType is SharedUnknownTypeStructure ||
+        unwrappedType is VoidType ||
+        unwrappedType is NullType) {
+      return true;
+    } else if (type.nullabilitySuffix == NullabilitySuffix.question) {
+      return false;
+    } else if (matchFutureOrInternal(unwrappedType) case Type typeArgument?) {
+      return isNullableInternal(typeArgument);
+    }
+    // TODO(cstefantsova): Update to a fast-pass implementation when the
+    // mini-ast testing framework supports looking up superinterfaces of
+    // extension types or looking up bounds of type parameters.
+    return _typeSystem.isSubtype(NullType.instance, unwrappedType);
   }
 }
 

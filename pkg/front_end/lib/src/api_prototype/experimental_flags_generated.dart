@@ -5,7 +5,7 @@
 // NOTE: THIS FILE IS GENERATED. DO NOT EDIT.
 //
 // Instead modify 'tools/experimental_features.yaml' and run
-// 'dart pkg/front_end/tool/fasta.dart generate-experimental-flags' to update.
+// 'dart pkg/front_end/tool/cfe.dart generate-experimental-flags' to update.
 
 part of 'experimental_flags.dart';
 
@@ -207,11 +207,11 @@ class ExperimentalFlag {
 
   static const ExperimentalFlag inferenceUsingBounds = const ExperimentalFlag(
     name: 'inference-using-bounds',
-    isEnabledByDefault: false,
+    isEnabledByDefault: true,
     isExpired: false,
-    enabledVersion: defaultLanguageVersion,
-    experimentEnabledVersion: defaultLanguageVersion,
-    experimentReleasedVersion: defaultLanguageVersion,
+    enabledVersion: const Version(3, 7),
+    experimentEnabledVersion: const Version(3, 7),
+    experimentReleasedVersion: const Version(3, 7),
   );
 
   static const ExperimentalFlag inlineClass = const ExperimentalFlag(

@@ -96,23 +96,26 @@ class _SuperComputer {
     }
 
     var inheritanceManager = session.inheritanceManager;
-    var elementName = element.name3;
-    var interfaceElement = element.thisOrAncestorOfType2<InterfaceElement2>();
 
-    if (elementName == null || interfaceElement == null) {
+    if (element is! ExecutableElement2) {
       return null;
     }
 
-    var name = Name(
-      interfaceElement.library2.firstFragment.source.uri,
-      elementName,
-    );
-    var member = inheritanceManager.getInherited4(interfaceElement, name);
+    var name = Name.forElement(element);
+    if (name == null) {
+      return null;
+    }
 
+    var interfaceElement = element.thisOrAncestorOfType2<InterfaceElement2>();
+    if (interfaceElement == null) {
+      return null;
+    }
+
+    var member = inheritanceManager.getInherited4(interfaceElement, name);
     return _lastFragment(member);
   }
 
-  Fragment? _lastFragment(FragmentedElement? element) {
+  Fragment? _lastFragment(Element2? element) {
     Fragment? fragment = element?.firstFragment;
     while (fragment?.nextFragment != null) {
       fragment = fragment?.nextFragment;

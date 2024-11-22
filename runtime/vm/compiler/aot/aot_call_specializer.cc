@@ -475,8 +475,8 @@ Definition* AotCallSpecializer::TryOptimizeDivisionOperation(
       InsertBefore(instr, sign_bit_position, /*env=*/nullptr,
                    FlowGraph::kValue);
       auto* const sign_bit_extended = new (Z)
-          ShiftInt64OpInstr(Token::kSHR, left_value,
-                            new (Z) Value(sign_bit_position), DeoptId::kNone);
+          BinaryInt64OpInstr(Token::kSHR, left_value,
+                             new (Z) Value(sign_bit_position), DeoptId::kNone);
       InsertBefore(instr, sign_bit_extended, /*env=*/nullptr,
                    FlowGraph::kValue);
       auto* rounding_adjustment = unboxed_constant(magnitude - 1);
@@ -496,8 +496,8 @@ Definition* AotCallSpecializer::TryOptimizeDivisionOperation(
           unboxed_constant(Utils::ShiftForPowerOfTwo(magnitude));
       InsertBefore(instr, right_definition, /*env=*/nullptr, FlowGraph::kValue);
       right_value = new (Z) Value(right_definition);
-      result = new (Z) ShiftInt64OpInstr(Token::kSHR, left_value, right_value,
-                                         DeoptId::kNone);
+      result = new (Z) BinaryInt64OpInstr(Token::kSHR, left_value, right_value,
+                                          DeoptId::kNone);
     } else {
       ASSERT_EQUAL(magnitude, 1);
       // No division needed, just redefine the value.
@@ -548,7 +548,8 @@ bool AotCallSpecializer::TryOptimizeIntegerOperation(TemplateDartCall<0>* instr,
             left_type->is_nullable() || right_type->is_nullable();
         replacement = new (Z) EqualityCompareInstr(
             instr->source(), op_kind, left_value->CopyWithType(Z),
-            right_value->CopyWithType(Z), kMintCid, DeoptId::kNone,
+            right_value->CopyWithType(Z),
+            either_can_be_null ? kTagged : kUnboxedInt64, DeoptId::kNone,
             /*null_aware=*/either_can_be_null);
         break;
       }
@@ -558,9 +559,9 @@ bool AotCallSpecializer::TryOptimizeIntegerOperation(TemplateDartCall<0>* instr,
       case Token::kGTE:
         left_value = PrepareStaticOpInput(left_value, kMintCid, instr);
         right_value = PrepareStaticOpInput(right_value, kMintCid, instr);
-        replacement =
-            new (Z) RelationalOpInstr(instr->source(), op_kind, left_value,
-                                      right_value, kMintCid, DeoptId::kNone);
+        replacement = new (Z)
+            RelationalOpInstr(instr->source(), op_kind, left_value, right_value,
+                              kUnboxedInt64, DeoptId::kNone);
         break;
       case Token::kMOD:
       case Token::kTRUNCDIV:
@@ -592,18 +593,10 @@ bool AotCallSpecializer::TryOptimizeIntegerOperation(TemplateDartCall<0>* instr,
       case Token::kSUB:
         FALL_THROUGH;
       case Token::kMUL: {
-        if (op_kind == Token::kSHL || op_kind == Token::kSHR ||
-            op_kind == Token::kUSHR) {
-          left_value = PrepareStaticOpInput(left_value, kMintCid, instr);
-          right_value = PrepareStaticOpInput(right_value, kMintCid, instr);
-          replacement = new (Z) ShiftInt64OpInstr(op_kind, left_value,
-                                                  right_value, DeoptId::kNone);
-        } else {
-          left_value = PrepareStaticOpInput(left_value, kMintCid, instr);
-          right_value = PrepareStaticOpInput(right_value, kMintCid, instr);
-          replacement = new (Z) BinaryInt64OpInstr(op_kind, left_value,
-                                                   right_value, DeoptId::kNone);
-        }
+        left_value = PrepareStaticOpInput(left_value, kMintCid, instr);
+        right_value = PrepareStaticOpInput(right_value, kMintCid, instr);
+        replacement = new (Z) BinaryInt64OpInstr(op_kind, left_value,
+                                                 right_value, DeoptId::kNone);
         break;
       }
 
@@ -673,7 +666,7 @@ bool AotCallSpecializer::TryOptimizeDoubleOperation(TemplateDartCall<0>* instr,
           left_value = PrepareStaticOpInput(left_value, kDoubleCid, instr);
           right_value = PrepareStaticOpInput(right_value, kDoubleCid, instr);
           replacement = new (Z) EqualityCompareInstr(
-              instr->source(), op_kind, left_value, right_value, kDoubleCid,
+              instr->source(), op_kind, left_value, right_value, kUnboxedDouble,
               DeoptId::kNone, /*null_aware=*/false);
           break;
         }
@@ -688,9 +681,9 @@ bool AotCallSpecializer::TryOptimizeDoubleOperation(TemplateDartCall<0>* instr,
       case Token::kGTE: {
         left_value = PrepareStaticOpInput(left_value, kDoubleCid, instr);
         right_value = PrepareStaticOpInput(right_value, kDoubleCid, instr);
-        replacement =
-            new (Z) RelationalOpInstr(instr->source(), op_kind, left_value,
-                                      right_value, kDoubleCid, DeoptId::kNone);
+        replacement = new (Z)
+            RelationalOpInstr(instr->source(), op_kind, left_value, right_value,
+                              kUnboxedDouble, DeoptId::kNone);
         break;
       }
       case Token::kADD:
@@ -1133,7 +1126,7 @@ bool AotCallSpecializer::TryReplaceInstanceOfWithRangeCheck(
         Smi::Handle(Z, Smi::New(lower_limit)), kUnboxedUword);
     check_range = new (Z)
         EqualityCompareInstr(call->source(), Token::kEQ, new Value(load_cid),
-                             new Value(cid_constant), kIntegerCid,
+                             new Value(cid_constant), kUnboxedUword,
                              DeoptId::kNone, /*null_aware=*/false);
   } else {
     check_range =

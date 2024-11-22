@@ -546,6 +546,10 @@ abstract class DirectiveUriWithSource extends DirectiveUriWithRelativeUri {
 ///
 /// Clients may not extend, implement or mix-in this class.
 abstract class DirectiveUriWithUnit extends DirectiveUriWithSource {
+  /// The library fragment referenced by the [source].
+  @experimental
+  LibraryFragment get libraryFragment;
+
   /// The unit referenced by the [source].
   CompilationUnitElement get unit;
 }
@@ -990,6 +994,10 @@ abstract class ElementAnnotation implements ConstantEvaluationTarget {
   /// Whether the annotation marks the associated member as being visible
   /// outside of template files.
   bool get isVisibleOutsideTemplate;
+
+  /// Whether the annotation marks the associated member as being a widget
+  /// factory.
+  bool get isWidgetFactory;
 
   /// Returns a representation of the value of this annotation, forcing the
   /// value to be computed if it had not previously been computed, or `null`
@@ -2513,6 +2521,7 @@ abstract class TypeParameterElement
   /// if this parameter does not have an explicit bound. Being able to
   /// distinguish between an implicit and explicit bound is needed by the
   /// instantiate to bounds algorithm.
+  @override
   DartType? get bound;
 
   @override

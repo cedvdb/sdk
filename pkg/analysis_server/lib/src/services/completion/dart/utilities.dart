@@ -129,6 +129,49 @@ CompletionDefaultArgumentList computeCompletionDefaultArgumentList(
   );
 }
 
+/// Compute default argument list text and ranges based on the given
+/// [requiredParams] and [namedParams].
+CompletionDefaultArgumentList computeCompletionDefaultArgumentList2(
+  Element2 element,
+  Iterable<FormalParameterElement> requiredParams,
+  Iterable<FormalParameterElement> namedParams,
+) {
+  var sb = StringBuffer();
+  var ranges = <int>[];
+
+  int offset;
+
+  for (var param in requiredParams) {
+    if (sb.isNotEmpty) {
+      sb.write(', ');
+    }
+    offset = sb.length;
+
+    var name = param.displayName;
+    sb.write(name);
+    ranges.addAll([offset, name.length]);
+  }
+
+  for (var param in namedParams) {
+    if (param.metadata2.hasRequired || param.isRequiredNamed) {
+      if (sb.isNotEmpty) {
+        sb.write(', ');
+      }
+      var name = param.displayName;
+      sb.write('$name: ');
+      offset = sb.length;
+      // TODO(pq): fix to use getDefaultStringParameterValue()
+      sb.write(name);
+      ranges.addAll([offset, name.length]);
+    }
+  }
+
+  return CompletionDefaultArgumentList(
+    text: sb.isNotEmpty ? sb.toString() : null,
+    ranges: ranges.isNotEmpty ? ranges : null,
+  );
+}
+
 /// Create a new protocol Element for inclusion in a completion suggestion.
 protocol.Element createLocalElement(
   Source source,
@@ -245,6 +288,22 @@ InterfaceType instantiateInstanceElement(
   NeverType neverType,
 ) {
   var typeParameters = element.typeParameters;
+  var typeArguments = const <DartType>[];
+  if (typeParameters.isNotEmpty) {
+    typeArguments = List.filled(typeParameters.length, neverType);
+  }
+  return element.instantiate(
+    typeArguments: typeArguments,
+    nullabilitySuffix: NullabilitySuffix.none,
+  );
+}
+
+/// Instantiates the given [InterfaceElement]
+InterfaceType instantiateInstanceElement2(
+  InterfaceElement2 element,
+  NeverType neverType,
+) {
+  var typeParameters = element.typeParameters2;
   var typeArguments = const <DartType>[];
   if (typeParameters.isNotEmpty) {
     typeArguments = List.filled(typeParameters.length, neverType);

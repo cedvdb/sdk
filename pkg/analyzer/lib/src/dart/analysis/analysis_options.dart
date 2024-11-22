@@ -87,7 +87,7 @@ final class AnalysisOptionsBuilder {
   void _applyCodeStyleOptions(YamlNode? codeStyle) {
     var useFormatter = false;
     if (codeStyle is YamlMap) {
-      var formatNode = codeStyle.valueAt(AnalyzerOptions.format);
+      var formatNode = codeStyle.valueAt(AnalysisOptionsFile.format);
       if (formatNode != null) {
         var formatValue = toBool(formatNode);
         if (formatValue is bool) {
@@ -110,7 +110,7 @@ final class AnalysisOptionsBuilder {
   void _applyFormatterOptions(YamlNode? formatter) {
     int? pageWidth;
     if (formatter is YamlMap) {
-      var formatNode = formatter.valueAt(AnalyzerOptions.pageWidth);
+      var formatNode = formatter.valueAt(AnalysisOptionsFile.pageWidth);
       var formatValue = formatNode?.value;
       if (formatValue is int && formatValue > 0) {
         pageWidth = formatValue;
@@ -135,11 +135,11 @@ final class AnalysisOptionsBuilder {
       }
 
       switch (feature) {
-        case AnalyzerOptions.strictCasts:
+        case AnalysisOptionsFile.strictCasts:
           strictCasts = boolValue;
-        case AnalyzerOptions.strictInference:
+        case AnalysisOptionsFile.strictInference:
           strictInference = boolValue;
-        case AnalyzerOptions.strictRawTypes:
+        case AnalysisOptionsFile.strictRawTypes:
           strictRawTypes = boolValue;
       }
     });
@@ -177,9 +177,9 @@ final class AnalysisOptionsBuilder {
           if (key is YamlScalar && value is YamlScalar) {
             if (value.boolValue case var boolValue?) {
               switch ('${key.value}') {
-                case AnalyzerOptions.chromeOsManifestChecks:
+                case AnalysisOptionsFile.chromeOsManifestChecks:
                   chromeOsManifestChecks = boolValue;
-                case AnalyzerOptions.propagateLinterExceptions:
+                case AnalysisOptionsFile.propagateLinterExceptions:
                   propagateLinterExceptions = boolValue;
               }
             }
@@ -187,15 +187,16 @@ final class AnalysisOptionsBuilder {
         }
       case YamlScalar():
         switch ('${config.value}') {
-          case AnalyzerOptions.chromeOsManifestChecks:
+          case AnalysisOptionsFile.chromeOsManifestChecks:
             chromeOsManifestChecks = true;
-          case AnalyzerOptions.propagateLinterExceptions:
+          case AnalysisOptionsFile.propagateLinterExceptions:
             propagateLinterExceptions = true;
         }
     }
   }
 
-  void _applyPluginsOptions(YamlNode? plugins) {
+  void _applyPluginsOptions(
+      YamlNode? plugins, ResourceProvider? resourceProvider) {
     if (plugins is! YamlMap) {
       return;
     }
@@ -226,14 +227,29 @@ final class AnalysisOptionsBuilder {
       // TODO(srawlins): In adition to 'version' and 'path', try 'git'.
 
       PluginSource? source;
-      var versionSource = pluginNode.valueAt(AnalyzerOptions.version);
+      var versionSource = pluginNode.valueAt(AnalysisOptionsFile.version);
       if (versionSource case YamlScalar(:String value)) {
         // TODO(srawlins): Handle the 'hosted' key.
         source = VersionedPluginSource(constraint: value);
       } else {
-        var pathSource = pluginNode.valueAt(AnalyzerOptions.path);
-        if (pathSource case YamlScalar(:String value)) {
-          source = PathPluginSource(path: value);
+        var pathSource = pluginNode.valueAt(AnalysisOptionsFile.path);
+        if (pathSource case YamlScalar(value: String pathValue)) {
+          var file = this.file;
+          assert(
+            file != null,
+            "AnalysisOptionsImpl must be initialized with a non-null 'file' if "
+            'plugins are specified with path constraints.',
+          );
+          if (file != null &&
+              resourceProvider != null &&
+              resourceProvider.pathContext.isRelative(pathValue)) {
+            // We need to store the absolute path, before this value is used in
+            // a synthetic pub package.
+            pathValue =
+                resourceProvider.pathContext.join(file.parent.path, pathValue);
+            pathValue = resourceProvider.pathContext.normalize(pathValue);
+          }
+          source = PathPluginSource(path: pathValue);
         }
       }
 
@@ -243,7 +259,7 @@ final class AnalysisOptionsBuilder {
         return;
       }
 
-      var diagnostics = pluginNode.valueAt(AnalyzerOptions.diagnostics);
+      var diagnostics = pluginNode.valueAt(AnalysisOptionsFile.diagnostics);
       var diagnosticConfigurations = diagnostics == null
           ? const <String, RuleConfig>{}
           : parseDiagnosticsSection(diagnostics);
@@ -262,7 +278,7 @@ final class AnalysisOptionsBuilder {
       return;
     }
     var stringValues = cannotIgnore.whereType<String>().toSet();
-    for (var severity in AnalyzerOptions.severities) {
+    for (var severity in AnalysisOptionsFile.severities) {
       if (stringValues.contains(severity)) {
         // [severity] is a marker denoting all error codes with severity
         // equal to [severity].
@@ -309,12 +325,6 @@ class AnalysisOptionsImpl implements AnalysisOptions {
 
   ExperimentStatus _contextFeatures;
 
-  /// The language version to use for libraries that are not in a package.
-  ///
-  /// If a library is in a package, this language version is *not* used,
-  /// even if the package does not specify the language version.
-  Version nonPackageLanguageVersion = ExperimentStatus.currentVersion;
-
   /// The set of features to use for libraries that are not in a package.
   ///
   /// If a library is in a package, this feature set is *not* used, even if the
@@ -326,7 +336,7 @@ class AnalysisOptionsImpl implements AnalysisOptions {
   final List<String> enabledLegacyPluginNames;
 
   @override
-  List<PluginConfiguration> pluginConfigurations = [];
+  final List<PluginConfiguration> pluginConfigurations;
 
   @override
   final List<ErrorProcessor> errorProcessors;
@@ -346,8 +356,8 @@ class AnalysisOptionsImpl implements AnalysisOptions {
   @override
   List<LintRule> lintRules = [];
 
-  /// Indicates whether linter exceptions should be propagated to the caller (by
-  /// re-throwing them).
+  /// Whether linter exceptions should be propagated to the caller (by
+  /// rethrowing them).
   bool propagateLinterExceptions;
 
   @override
@@ -385,18 +395,22 @@ class AnalysisOptionsImpl implements AnalysisOptions {
   /// [optionsMap].
   ///
   /// Optionally pass [file] as the file where the YAML can be found.
-  factory AnalysisOptionsImpl.fromYaml(
-      {required YamlMap optionsMap, File? file}) {
+  factory AnalysisOptionsImpl.fromYaml({
+    required YamlMap optionsMap,
+    File? file,
+    ResourceProvider? resourceProvider,
+  }) {
     var builder = AnalysisOptionsBuilder()..file = file;
 
-    var analyzer = optionsMap.valueAt(AnalyzerOptions.analyzer);
+    var analyzer = optionsMap.valueAt(AnalysisOptionsFile.analyzer);
     if (analyzer is YamlMap) {
       // Process filters.
-      var filters = analyzer.valueAt(AnalyzerOptions.errors);
+      var filters = analyzer.valueAt(AnalysisOptionsFile.errors);
       builder.errorProcessors = ErrorConfig(filters).processors;
 
       // Process enabled experiments.
-      var experimentNames = analyzer.valueAt(AnalyzerOptions.enableExperiment);
+      var experimentNames =
+          analyzer.valueAt(AnalysisOptionsFile.enableExperiment);
       if (experimentNames is YamlList) {
         var enabledExperiments = <String>[];
         for (var element in experimentNames.nodes) {
@@ -413,32 +427,32 @@ class AnalysisOptionsImpl implements AnalysisOptions {
       }
 
       // Process optional checks options.
-      var optionalChecks = analyzer.valueAt(AnalyzerOptions.optionalChecks);
+      var optionalChecks = analyzer.valueAt(AnalysisOptionsFile.optionalChecks);
       builder._applyOptionalChecks(optionalChecks);
 
       // Process language options.
-      var language = analyzer.valueAt(AnalyzerOptions.language);
+      var language = analyzer.valueAt(AnalysisOptionsFile.language);
       builder._applyLanguageOptions(language);
 
       // Process excludes.
-      var excludes = analyzer.valueAt(AnalyzerOptions.exclude);
+      var excludes = analyzer.valueAt(AnalysisOptionsFile.exclude);
       builder._applyExcludes(excludes);
 
-      var cannotIgnore = analyzer.valueAt(AnalyzerOptions.cannotIgnore);
+      var cannotIgnore = analyzer.valueAt(AnalysisOptionsFile.cannotIgnore);
       builder._applyUnignorables(cannotIgnore);
 
       // Process legacy plugins.
-      var legacyPlugins = analyzer.valueAt(AnalyzerOptions.plugins);
+      var legacyPlugins = analyzer.valueAt(AnalysisOptionsFile.plugins);
       builder._applyLegacyPlugins(legacyPlugins);
     }
 
     // Process the 'formatter' option.
-    var formatter = optionsMap.valueAt(AnalyzerOptions.formatter);
+    var formatter = optionsMap.valueAt(AnalysisOptionsFile.formatter);
     builder._applyFormatterOptions(formatter);
 
     // Process the 'plugins' option.
-    var plugins = optionsMap.valueAt(AnalyzerOptions.plugins);
-    builder._applyPluginsOptions(plugins);
+    var plugins = optionsMap.valueAt(AnalysisOptionsFile.plugins);
+    builder._applyPluginsOptions(plugins, resourceProvider);
 
     var ruleConfigs = parseLinterSection(optionsMap);
     if (ruleConfigs != null) {
@@ -450,7 +464,7 @@ class AnalysisOptionsImpl implements AnalysisOptions {
     }
 
     // Process the 'code-style' option.
-    var codeStyle = optionsMap.valueAt(AnalyzerOptions.codeStyle);
+    var codeStyle = optionsMap.valueAt(AnalysisOptionsFile.codeStyle);
     builder._applyCodeStyleOptions(codeStyle);
 
     return builder.build();
@@ -485,6 +499,12 @@ class AnalysisOptionsImpl implements AnalysisOptions {
     _contextFeatures = featureSet as ExperimentStatus;
     nonPackageFeatureSet = featureSet;
   }
+
+  /// The language version to use for libraries that are not in a package.
+  ///
+  /// If a library is in a package, this language version is *not* used,
+  /// even if the package does not specify the language version.
+  Version get nonPackageLanguageVersion => ExperimentStatus.currentVersion;
 
   Uint32List get signature {
     if (_signature == null) {

@@ -531,7 +531,10 @@ abstract class AnalysisServer {
   ///
   /// If there is already an active connection to DTD or there is an error
   /// connecting, returns an error, otherwise returns `null`.
-  Future<lsp.ErrorOr<Null>> connectToDtd(Uri dtdUri) async {
+  Future<lsp.ErrorOr<Null>> connectToDtd(
+    Uri dtdUri, {
+    bool registerExperimentalHandlers = false,
+  }) async {
     switch (dtd?.state) {
       case DtdConnectionState.Connecting || DtdConnectionState.Connected:
         return lsp.error(
@@ -539,7 +542,11 @@ abstract class AnalysisServer {
           'Server is already connected to DTD',
         );
       case DtdConnectionState.Disconnected || DtdConnectionState.Error || null:
-        var connectResult = await DtdServices.connect(this, dtdUri);
+        var connectResult = await DtdServices.connect(
+          this,
+          dtdUri,
+          registerExperimentalHandlers: registerExperimentalHandlers,
+        );
         return connectResult.mapResultSync((dtd) {
           this.dtd = dtd;
           return lsp.success(null);
@@ -756,7 +763,7 @@ abstract class AnalysisServer {
       return null;
     }
     try {
-      return driver.currentSession.getResolvedContainingLibrary(path);
+      return await driver.currentSession.getResolvedContainingLibrary(path);
     } on InconsistentAnalysisException {
       return null;
     } catch (exception, stackTrace) {

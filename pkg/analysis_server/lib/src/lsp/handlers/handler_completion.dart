@@ -29,9 +29,9 @@ import 'package:analyzer/dart/ast/ast.dart' as ast;
 import 'package:analyzer/source/line_info.dart';
 import 'package:analyzer/src/util/file_paths.dart' as file_paths;
 import 'package:analyzer/src/util/performance/operation_performance.dart';
+import 'package:analyzer/src/utilities/extensions/element.dart';
 import 'package:analyzer/src/utilities/fuzzy_matcher.dart';
 import 'package:analyzer_plugin/protocol/protocol_common.dart';
-import 'package:analyzer_plugin/protocol/protocol_generated.dart' as plugin;
 import 'package:analyzer_plugin/src/utilities/completion/completion_target.dart';
 import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
@@ -98,7 +98,9 @@ class CompletionHandler
     // Cancel any existing in-progress completion request in case the client did
     // not do it explicitly, because the results will not be useful and it may
     // delay processing this one.
-    previousRequestCancellationToken?.cancel();
+    previousRequestCancellationToken?.cancel(
+      reason: 'Another textDocument/completion request was started',
+    );
     previousRequestCancellationToken = token.asCancelable();
 
     var requestLatency = message.timeSinceRequest;
@@ -132,7 +134,7 @@ class CompletionHandler
       await delayAfterResolveForTests;
     }
     if (token.isCancellationRequested) {
-      return cancelled();
+      return cancelled(token);
     }
 
     // Map the offset, propagating the previous failure if we didn't have a
@@ -202,31 +204,11 @@ class CompletionHandler
         }
       }
 
-      var pluginResultsFuture = _getPluginResults(
-        clientCapabilities,
-        lineInfo,
-        path,
-        offset,
-      );
-
       var serverResults =
           (await serverResultsFuture) ?? success(_CompletionResults.empty());
-      var pluginResults = await pluginResultsFuture;
 
-      return (serverResults, pluginResults).mapResultsSync((
-        serverResults,
-        pluginResults,
-      ) {
-        // Add in fuzzy scores for completion items.
-        var pluginResultItems = pluginResults.items.map(
-          (item) => (
-            item: item,
-            score: serverResults.fuzzy.completionItemScore(item),
-          ),
-        );
-
-        var untruncatedRankedItems =
-            serverResults.rankedItems.followedBy(pluginResultItems).toList();
+      return serverResults.mapResultSync((serverResults) {
+        var untruncatedRankedItems = serverResults.rankedItems.toList();
         var unrankedItems = serverResults.unrankedItems;
 
         // Truncate ranked items allowing for all unranked items.
@@ -257,7 +239,6 @@ class CompletionHandler
             // marked as such.
             isIncomplete:
                 serverResults.isIncomplete ||
-                pluginResults.isIncomplete ||
                 truncatedRankedItems.length != untruncatedRankedItems.length,
             items: truncatedItems,
             itemDefaults: serverResults.defaults,
@@ -356,39 +337,6 @@ class CompletionHandler
     );
   }
 
-  Future<ErrorOr<CompletionList>> _getPluginResults(
-    LspClientCapabilities capabilities,
-    LineInfo lineInfo,
-    String path,
-    int offset,
-  ) async {
-    var requestParams = plugin.CompletionGetSuggestionsParams(path, offset);
-    var pluginResponses = await requestFromPlugins(
-      path,
-      requestParams,
-      timeout: const Duration(milliseconds: 100),
-    );
-
-    var pluginResults =
-        pluginResponses
-            .map((e) => plugin.CompletionGetSuggestionsResult.fromResponse(e))
-            .toList();
-
-    return success(
-      CompletionList(
-        isIncomplete: false,
-        items:
-            _pluginResultsToItems(
-              capabilities,
-              path,
-              lineInfo,
-              offset,
-              pluginResults,
-            ).toList(),
-      ),
-    );
-  }
-
   Future<ErrorOr<_CompletionResults>> _getServerDartItems(
     LspClientCapabilities capabilities,
     ResolvedUnitResult unit,
@@ -458,7 +406,7 @@ class CompletionHandler
       );
 
       if (token.isCancellationRequested) {
-        return cancelled();
+        return cancelled(token);
       }
 
       /// completeFunctionCalls should be suppressed if the target is an
@@ -531,7 +479,7 @@ class CompletionHandler
 
         if (item is ElementBasedSuggestion && item is ImportableSuggestion) {
           var elementLocation =
-              (item as ElementBasedSuggestion).element.location;
+              (item as ElementBasedSuggestion).element.asElement!.location;
           var importUri = item.importData?.libraryUri;
 
           if (importUri != null) {
@@ -760,64 +708,6 @@ class CompletionHandler
             !node.argumentList.beginToken.isSynthetic) ||
         // "ClassName.^()" will appear as accessing a property named '('.
         (node is ast.PropertyAccess && node.propertyName.name.startsWith('('));
-  }
-
-  Iterable<CompletionItem> _pluginResultsToItems(
-    LspClientCapabilities capabilities,
-    String filePath,
-    LineInfo lineInfo,
-    int offset,
-    List<plugin.CompletionGetSuggestionsResult> pluginResults,
-  ) {
-    return pluginResults.expand((result) {
-      var insertLength = _computeInsertLength(
-        offset,
-        result.replacementOffset,
-        result.replacementLength,
-      );
-      var replacementRange = toRange(
-        lineInfo,
-        result.replacementOffset,
-        result.replacementLength,
-      );
-      var insertionRange = toRange(
-        lineInfo,
-        result.replacementOffset,
-        insertLength,
-      );
-
-      return result.results.map((item) {
-        var isNotImported = item.isNotImported ?? false;
-        var importUri = item.libraryUri;
-
-        DartCompletionResolutionInfo? resolutionInfo;
-        if (isNotImported && importUri != null) {
-          resolutionInfo = DartCompletionResolutionInfo(
-            file: filePath,
-            importUris: [importUri],
-          );
-        }
-
-        return toCompletionItem(
-          capabilities,
-          lineInfo,
-          item,
-          uriConverter: uriConverter,
-          pathContext: pathContext,
-          completionFilePath: filePath,
-          replacementRange: replacementRange,
-          insertionRange: insertionRange,
-          includeDocumentation:
-              server.lspClientConfiguration.global.preferredDocumentation,
-          // Plugins cannot currently contribute commit characters and we should
-          // not assume that the Dart ones would be correct for all of their
-          // completions.
-          commitCharactersEnabled: false,
-          completeFunctionCalls: false,
-          resolutionData: resolutionInfo,
-        );
-      });
-    });
   }
 
   /// Checks whether the given [triggerCharacter] is valid for [target].

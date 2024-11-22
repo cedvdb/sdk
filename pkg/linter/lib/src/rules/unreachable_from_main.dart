@@ -53,10 +53,8 @@ class _DeclarationGatherer {
       if (declaration is TopLevelVariableDeclaration) {
         declarations.addAll(declaration.variables.variables);
       } else {
-        if (declaration is! FragmentDeclaration) continue;
         declarations.add(declaration);
-        var declaredElement =
-            (declaration as FragmentDeclaration).declaredFragment?.element;
+        var declaredElement = declaration.declaredFragment?.element;
         if (declaredElement == null || declaredElement.isPrivate) {
           continue;
         }
@@ -94,14 +92,22 @@ class _DeclarationGatherer {
     required Element2? containerElement,
     required List<ClassMember> members,
   }) {
-    bool isOverride(String? rawName) {
-      if (rawName == null || containerElement is! InterfaceElement2) {
+    bool isOverride(ExecutableElement2? element) {
+      if (containerElement is! InterfaceElement2) {
         return false;
       }
-      var libraryUri = containerElement.library2.firstFragment.source.uri;
-      var name = Name(libraryUri, rawName);
+
+      if (element == null) {
+        return false;
+      }
+
+      var nameObj = Name.forElement(element);
+      if (nameObj == null) {
+        return false;
+      }
+
       var inheritance = linterContext.inheritanceManager;
-      return inheritance.getOverridden(containerElement, name) != null;
+      return inheritance.getOverridden(containerElement, nameObj) != null;
     }
 
     for (var member in members) {
@@ -114,8 +120,8 @@ class _DeclarationGatherer {
         case FieldDeclaration():
           for (var field in member.fields.variables) {
             var element = field.declaredFragment?.element;
-            if (element != null && element.isPublic) {
-              if (!isOverride(element.name3)) {
+            if (element is FieldElement2 && element.isPublic) {
+              if (!isOverride(element.getter2)) {
                 declarations.add(field);
               }
             }
@@ -128,7 +134,7 @@ class _DeclarationGatherer {
                 rawName.startsWith('solo_test_') ||
                 rawName == 'setUp' ||
                 rawName == 'tearDown';
-            if (!isOverride(element.name3) && !isTestMethod) {
+            if (!isOverride(element) && !isTestMethod) {
               declarations.add(member);
             }
           }
@@ -142,7 +148,7 @@ class _DeclarationGatherer {
 /// "References" are most often [SimpleIdentifier]s, but can also be other
 /// nodes which refer to a declaration.
 class _ReferenceVisitor extends RecursiveAstVisitor<void> {
-  Map<Element2, FragmentDeclaration> declarationMap;
+  Map<Element2, Declaration> declarationMap;
 
   Set<Declaration> declarations = {};
 
@@ -463,10 +469,9 @@ class _Visitor extends SimpleAstVisitor<void> {
     if (entryPoints.isEmpty) return;
 
     // Map each top-level and static element to its declaration.
-    var declarationByElement = <Element2, FragmentDeclaration>{};
+    var declarationByElement = <Element2, Declaration>{};
     for (var declaration in declarations) {
-      var element =
-          (declaration as FragmentDeclaration).declaredFragment?.element;
+      var element = declaration.declaredFragment?.element;
       if (element != null) {
         declarationByElement[element] = declaration;
         if (element is TopLevelVariableElement2) {
@@ -516,8 +521,7 @@ class _Visitor extends SimpleAstVisitor<void> {
     var unitDeclarations = unitDeclarationGatherer.declarations;
     var unusedDeclarations = unitDeclarations.difference(usedMembers);
     var unusedMembers = unusedDeclarations.where((declaration) {
-      var element =
-          (declaration as FragmentDeclaration).declaredFragment?.element;
+      var element = declaration.declaredFragment?.element;
       return element != null &&
           element.isPublic &&
           !element.hasVisibleForTesting;

@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library fasta.enum_builder;
-
 import 'package:_fe_analyzer_shared/src/parser/formal_parameter_kind.dart';
 import 'package:_fe_analyzer_shared/src/scanner/token.dart';
 import 'package:kernel/ast.dart';
@@ -163,9 +161,11 @@ class SourceEnumBuilder extends SourceClassBuilder {
     super.buildScopes(coreLibrary);
     _createSynthesizedMembers(coreLibrary);
 
+    // Include duplicates to install the formals on all constructors to avoid a
+    // crash later.
     Iterator<MemberBuilder> iterator =
         nameSpace.filteredConstructorNameIterator(
-            includeDuplicates: false, includeAugmentations: true);
+            includeDuplicates: true, includeAugmentations: true);
     while (iterator.moveNext()) {
       MemberBuilder member = iterator.current;
       if (member is DeclaredSourceConstructorBuilder) {
@@ -614,6 +614,11 @@ class SourceEnumBuilder extends SourceClassBuilder {
     constructorName = constructorName == "new" ? "" : constructorName;
     MemberBuilder? constructorBuilder =
         nameSpace.lookupConstructor(constructorName);
+    // TODO(CFE Team): Should there be a conversion to an invalid expression
+    // instead? That's what happens on classes.
+    while (constructorBuilder?.next != null) {
+      constructorBuilder = constructorBuilder?.next as MemberBuilder;
+    }
 
     ArgumentsImpl arguments;
     List<Expression> enumSyntheticArguments = <Expression>[

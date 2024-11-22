@@ -1836,24 +1836,25 @@ library
       enclosingFragment: <testLibraryFragment>
       previousFragment: <testLibraryFragment>
       topLevelVariables
-        a @25
+        hasInitializer a @25
           reference: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a
-          element: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a#element
+          element: <testLibrary>::@topLevelVariable::a
           getter2: <testLibrary>::@fragment::package:test/a.dart::@getter::a
           setter2: <testLibrary>::@fragment::package:test/a.dart::@setter::a
       getters
-        get <null-name>
+        synthetic get a
           reference: <testLibrary>::@fragment::package:test/a.dart::@getter::a
           element: <testLibrary>::@fragment::package:test/a.dart::@getter::a#element
       setters
-        set <null-name>
+        synthetic set a
           reference: <testLibrary>::@fragment::package:test/a.dart::@setter::a
           element: <testLibrary>::@fragment::package:test/a.dart::@setter::a#element
           formalParameters
             <null-name>
               element: <testLibrary>::@fragment::package:test/a.dart::@setter::a::@parameter::_a#element
   topLevelVariables
-    a
+    hasInitializer a
+      reference: <testLibrary>::@topLevelVariable::a
       firstFragment: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a
       type: int
       getter: <testLibrary>::@fragment::package:test/a.dart::@getter::a#element
@@ -1862,7 +1863,7 @@ library
     synthetic static get a
       firstFragment: <testLibrary>::@fragment::package:test/a.dart::@getter::a
   setters
-    synthetic static set a=
+    synthetic static set a
       firstFragment: <testLibrary>::@fragment::package:test/a.dart::@setter::a
       formalParameters
         requiredPositional _a
@@ -1932,16 +1933,17 @@ library
       enclosingFragment: <testLibraryFragment>
       previousFragment: <testLibraryFragment>
       topLevelVariables
-        const a @27
+        hasInitializer a @27
           reference: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a
-          element: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a#element
+          element: <testLibrary>::@topLevelVariable::a
           getter2: <testLibrary>::@fragment::package:test/a.dart::@getter::a
       getters
-        get <null-name>
+        synthetic get a
           reference: <testLibrary>::@fragment::package:test/a.dart::@getter::a
           element: <testLibrary>::@fragment::package:test/a.dart::@getter::a#element
   topLevelVariables
-    const a
+    const hasInitializer a
+      reference: <testLibrary>::@topLevelVariable::a
       firstFragment: <testLibrary>::@fragment::package:test/a.dart::@topLevelVariable::a
       type: int
       getter: <testLibrary>::@fragment::package:test/a.dart::@getter::a#element

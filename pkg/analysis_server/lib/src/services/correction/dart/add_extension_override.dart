@@ -18,13 +18,19 @@ class AddExtensionOverride extends MultiCorrectionProducer {
     var node = this.node;
     if (node is! SimpleIdentifier) return const [];
     var parent = node.parent;
-    if (parent is! PropertyAccess) return const [];
-    var target = parent.target;
+    Expression? target;
+    if (parent is MethodInvocation) {
+      target = parent.target;
+    } else if (parent is PropertyAccess) {
+      target = parent.target;
+    } else {
+      return const [];
+    }
     if (target == null) return const [];
     var dartFixContext = context.dartFixContext;
     if (dartFixContext == null) return const [];
 
-    var libraryFragment = dartFixContext.resolvedResult.unit.declaredElement!;
+    var libraryFragment = dartFixContext.unitResult.unit.declaredElement!;
     var libraryElement = libraryFragment.library;
 
     var nodeName = Name(libraryElement.source.uri, node.name);

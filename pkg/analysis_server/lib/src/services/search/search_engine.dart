@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/element2.dart';
 import 'package:analyzer/source/source.dart';
 import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
@@ -127,6 +128,17 @@ abstract class SearchEngine {
     OperationPerformanceImpl? performance,
   });
 
+  /// Returns direct subtypes of the given [type].
+  ///
+  /// [type] - the [ClassElement] being subtyped by the found matches.
+  /// [cache] - the [SearchEngineCache] used to speeding up the computation. If
+  ///    empty it will be filled out and can be used on any subsequent query.
+  Future<List<SearchMatch>> searchSubtypes2(
+    InterfaceElement2 type,
+    SearchEngineCache cache, {
+    OperationPerformanceImpl? performance,
+  });
+
   /// Returns all the top-level declarations matching the given pattern.
   ///
   /// [pattern] the regular expression used to match the names of the
@@ -147,6 +159,9 @@ abstract class SearchMatch {
   /// Return the [Element] containing the match.
   Element get element;
 
+  /// Return the element containing the match.
+  Element2 get element2;
+
   /// The absolute path of the file containing the match.
   String get file;
 
@@ -161,6 +176,9 @@ abstract class SearchMatch {
 
   /// Return the [LibraryElement] for the [file].
   LibraryElement get libraryElement;
+
+  /// Return the library element for the [file].
+  LibraryElement2 get libraryElement2;
 
   /// The library [Source] of the reference.
   Source get librarySource;

@@ -4,7 +4,7 @@
 
 # Run
 #
-#     dart run pkg/front_end/tool/_fasta/generate_messages.dart
+#     dart run pkg/front_end/tool/generate_messages.dart
 #
 # to regenerate messages after having edited this file.
 #
@@ -41,7 +41,7 @@
 # and should be allowed to change the kind of diagnostic without affecting the
 # message. For example, an error might be turned into a warning by the tool.
 #
-# See the file [lib/src/fasta/diagnostics.md] for more details on how to write
+# See the file [lib/src/base/diagnostics.md] for more details on how to write
 # good diagnostic messages.
 #
 # A message used for internal errors should have key that starts with
@@ -61,7 +61,7 @@
 # name of the corresponding public Analyzer error const
 # (e.g. ParserErrorCode.EQUALITY_CANNOT_BE_EQUALITY_OPERAND)
 # which will be used when generating code in Analyzer for translating
-# fasta error codes to Analyzer error codes.
+# cfe error codes to Analyzer error codes.
 # If `sharedName` is defined, the generated analyzer code will use this as the
 # user-facing analyzer code instead of `analyzerCode`. Multiple messages can share
 # the `sharedName`.
@@ -100,7 +100,7 @@
 # `#string`, `#string2`, `#string3`: strings (that aren't names).
 #    Note: as a rule of thumb, avoid using the `#string` keys. In particular,
 #    do not use them for composing error messages, see [diagnostics.md](
-#    lib/src/fasta/diagnostics.md#avoid-composing-messages-programmatically).
+#    lib/src/base/diagnostics.md#avoid-composing-messages-programmatically).
 #    Note that asserts check if these are empty. If they can be empty use an
 #    available `OKEmpty` version (or add the missing needed one(s)) to avoid
 #    triggering an assert.
@@ -1922,7 +1922,7 @@ UnterminatedToken:
 
 # Note: avoid using this template, it should only be used for debugging and
 # prototyping, see [diagnostics.md](
-# lib/src/fasta/diagnostics.md#avoid-composing-messages-programmatically).
+# lib/src/base/diagnostics.md#avoid-composing-messages-programmatically).
 Unspecified:
   problemMessage: "#string"
 
@@ -4798,16 +4798,16 @@ IncorrectTypeArgumentInferred:
   correctionMessage: "Try specifying type arguments explicitly so that they conform to the bounds."
   analyzerCode: TYPE_ARGUMENT_NOT_MATCHING_BOUNDS
   script: >
-    void foo<T extends num>(T t) {}
-    main() { foo("bar"); }
+    foo<T extends List<S>, S extends num>(T t) {}
+    main() { foo(<String>[""]); }
 
 IncorrectTypeArgumentQualifiedInferred:
   problemMessage: "Inferred type argument '#type' doesn't conform to the bound '#type2' of the type variable '#name' on '#type3.#name2'."
   correctionMessage: "Try specifying type arguments explicitly so that they conform to the bounds."
   analyzerCode: TYPE_ARGUMENT_NOT_MATCHING_BOUNDS
   script: >
-    class C<T> { foo<U extends num>(U u) {} }
-    main() { new C<String>().foo(""); }
+    class A { foo<T extends List<S>, S extends num>(T t) {} }
+    main() { new A().foo(<String>[""]); }
 
 IncorrectTypeArgumentInstantiation:
   problemMessage: "Type argument '#type' doesn't conform to the bound '#type2' of the type variable '#name' on '#type3'."
@@ -4824,9 +4824,9 @@ IncorrectTypeArgumentInstantiationInferred:
   correctionMessage: "Try specifying type arguments explicitly so that they conform to the bounds."
   analyzerCode: TYPE_ARGUMENT_NOT_MATCHING_BOUNDS
   script: |
-    X bounded<X extends num>(X x) => x;
+    X bounded<X extends List<Y>, Y extends num>(X x) => x;
     main() {
-      String Function(String) c = bounded;
+      List<String> Function(List<String>) c = bounded;
     }
 
 IncorrectTypeArgumentVariable:
@@ -4895,17 +4895,17 @@ TypeOriginWithFileUri:
 ObjectExtends:
   problemMessage: "The class 'Object' can't have a superclass."
   frontendInternal: true
-  external: test/fasta/object_supertype_test.dart
+  external: test/object_supertype_test.dart
 
 ObjectImplements:
   problemMessage: "The class 'Object' can't implement anything."
   frontendInternal: true
-  external: test/fasta/object_supertype_test.dart
+  external: test/object_supertype_test.dart
 
 ObjectMixesIn:
   problemMessage: "The class 'Object' can't use mixins."
   frontendInternal: true
-  external: test/fasta/object_supertype_test.dart
+  external: test/object_supertype_test.dart
 
 StaticAndInstanceConflict:
   problemMessage: "This static member conflicts with an instance member."

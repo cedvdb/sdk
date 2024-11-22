@@ -16,6 +16,7 @@ void main() {
         'intField': 10,
         'doubleField': 12.5,
         'numField': 11,
+        'dateTimeField': '2024-11-11T03:42:29.108308',
         'listOfSerializableField': [
           {'x': 1},
         ],
@@ -26,6 +27,10 @@ void main() {
           'c': {'x': 3}
         },
         'enumField': 'a',
+        'customStringSerializationField': 'hi',
+        'customMapSerializationField': {
+          'z': 'zzz',
+        }
       };
 
       var a = A.fromJson(json);
@@ -34,10 +39,14 @@ void main() {
       expect(a.intField, 10);
       expect(a.doubleField, 12.5);
       expect(a.numField, 11);
+      expect(a.dateTimeField, DateTime.parse('2024-11-11T03:42:29.108308'));
       expect(a.listOfSerializableField.single.x, 1);
       expect(a.setOfSerializableField.single.x, 2);
       expect(a.mapOfSerializableField['c']!.x, 3);
       expect(a.enumField, EnumField.a);
+      expect(a.customStringSerializationField, CustomStringSerialization('hi'));
+      expect(
+          a.customMapSerializationField, CustomMapSerialization({'z': 'zzz'}));
 
       expect(a.toJson(), equals(json));
     });
@@ -49,6 +58,7 @@ void main() {
         'nullableIntField': 9,
         'nullableDoubleField': 11.5,
         'nullableNumField': 11.1,
+        'nullableDateTimeField': '2024-11-11T03:42:29.108308',
         'nullableListOfSerializableField': [
           {'x': 1},
         ],
@@ -58,6 +68,8 @@ void main() {
         'nullableMapOfSerializableField': {
           'd': {'x': 3},
         },
+        'nullableCustomStringSerializationField': 'hi',
+        'nullableCustomMapSerializationField': {'z': 'zzz'},
       };
 
       var b = B.fromJson(json);
@@ -66,9 +78,15 @@ void main() {
       expect(b.nullableIntField, 9);
       expect(b.nullableDoubleField, 11.5);
       expect(b.nullableNumField, 11.1);
+      expect(b.nullableDateTimeField,
+          DateTime.parse('2024-11-11T03:42:29.108308'));
       expect(b.nullableListOfSerializableField!.single.x, 1);
       expect(b.nullableSetOfSerializableField!.single.x, 2);
       expect(b.nullableMapOfSerializableField!['d']!.x, 3);
+      expect(b.nullableCustomStringSerializationField,
+          CustomStringSerialization('hi'));
+      expect(b.nullableCustomMapSerializationField,
+          CustomMapSerialization({'z': 'zzz'}));
 
       expect(b.toJson(), equals(json));
     });
@@ -80,18 +98,24 @@ void main() {
         'nullableIntField': null,
         'nullableDoubleField': null,
         'nullableNumField': null,
+        'nullableDateTimeField': null,
         'nullableListOfSerializableField': null,
         'nullableSetOfSerializableField': null,
         'nullableMapOfSerializableField': null,
+        'nullableCustomStringSerializationField': null,
+        'nullableCustomMapSerializationField': null,
       });
       expect(b.nullableBoolField, null);
       expect(b.nullableStringField, null);
       expect(b.nullableIntField, null);
       expect(b.nullableDoubleField, null);
       expect(b.nullableNumField, null);
+      expect(b.nullableDateTimeField, null);
       expect(b.nullableListOfSerializableField, null);
       expect(b.nullableMapOfSerializableField, null);
       expect(b.nullableSetOfSerializableField, null);
+      expect(b.nullableCustomStringSerializationField, null);
+      expect(b.nullableCustomMapSerializationField, null);
 
       expect(b.toJson(), isEmpty);
     });
@@ -103,9 +127,12 @@ void main() {
       expect(b.nullableIntField, null);
       expect(b.nullableDoubleField, null);
       expect(b.nullableNumField, null);
+      expect(b.nullableDateTimeField, null);
       expect(b.nullableListOfSerializableField, null);
       expect(b.nullableMapOfSerializableField, null);
       expect(b.nullableSetOfSerializableField, null);
+      expect(b.nullableCustomStringSerializationField, null);
+      expect(b.nullableCustomMapSerializationField, null);
 
       expect(b.toJson(), isEmpty);
     });
@@ -124,6 +151,7 @@ void main() {
 
     test('collections of nullable objects', () {
       var json = {
+        'listOfNullableDates': [null, '2024-11-11T03:42:29.108308'],
         'listOfNullableInts': [null, 1],
         'listOfNullableSerializables': [
           {'x': 1},
@@ -132,6 +160,15 @@ void main() {
         'listOfNullableMapsOfNullableInts': [
           null,
           {'a': 1, 'b': null},
+        ],
+        'listOfCustomStringSerializables': [null, 'hi'],
+        'listOfCustomMapSerializables': [
+          null,
+          {'z': 'zzz'},
+        ],
+        'setOfNullableDates': [
+          null,
+          '2024-11-12T03:42:29.108308',
         ],
         'setOfNullableInts': [
           null,
@@ -148,6 +185,15 @@ void main() {
             'b': null,
           },
         ],
+        'setOfCustomStringSerializables': [null, 'hi'],
+        'setOfCustomMapSerializables': [
+          null,
+          {'z': 'zzz'}
+        ],
+        'mapOfNullableDates': {
+          'a': '2024-11-13T03:42:29.108308',
+          'b': null,
+        },
         'mapOfNullableInts': {
           'a': 3,
           'b': null,
@@ -160,9 +206,19 @@ void main() {
           'a': [null, 3],
           'b': null,
         },
+        'mapOfCustomStringSerializables': {
+          'a': null,
+          'b': 'hi',
+        },
+        'mapOfCustomMapSerializables': {
+          'a': null,
+          'b': {'z': 'zzz'},
+        },
       };
 
       var e = E.fromJson(json);
+      expect(e.listOfNullableDates,
+          equals([null, DateTime.parse('2024-11-11T03:42:29.108308')]));
       expect(e.listOfNullableInts, equals([null, 1]));
       expect(e.listOfNullableSerializables.first!.x, 1);
       expect(e.listOfNullableSerializables[1], null);
@@ -172,6 +228,15 @@ void main() {
             null,
             {'a': 1, 'b': null},
           ]));
+      expect(e.listOfCustomStringSerializables.first, null);
+      expect(e.listOfCustomStringSerializables[1],
+          CustomStringSerialization('hi'));
+      expect(e.listOfCustomMapSerializables.first, null);
+      expect(e.listOfCustomMapSerializables[1],
+          CustomMapSerialization({'z': 'zzz'}));
+
+      expect(e.setOfNullableDates,
+          equals([null, DateTime.parse('2024-11-12T03:42:29.108308')]));
       expect(e.setOfNullableInts, equals({null, 2}));
       expect(e.setOfNullableSerializables.first!.x, 2);
       expect(e.setOfNullableSerializables.elementAt(1), null);
@@ -183,6 +248,19 @@ void main() {
               'a': 2,
               'b': null,
             },
+          }));
+      expect(e.setOfCustomStringSerializables.first, null);
+      expect(e.setOfCustomStringSerializables.toList()[1],
+          CustomStringSerialization('hi'));
+      expect(e.setOfCustomMapSerializables.first, null);
+      expect(e.setOfCustomMapSerializables.toList()[1],
+          CustomMapSerialization({'z': 'zzz'}));
+
+      expect(
+          e.mapOfNullableDates,
+          equals({
+            'a': DateTime.parse('2024-11-13T03:42:29.108308'),
+            'b': null,
           }));
       expect(
           e.mapOfNullableInts,
@@ -197,6 +275,12 @@ void main() {
         'a': {null, 3},
         'b': null,
       });
+      expect(e.mapOfCustomStringSerializables['a'], null);
+      expect(e.mapOfCustomStringSerializables['b'],
+          CustomStringSerialization('hi'));
+      expect(e.mapOfCustomMapSerializables['a'], null);
+      expect(e.mapOfCustomMapSerializables['b'],
+          CustomMapSerialization({'z': 'zzz'}));
 
       expect(e.toJson(), equals(json));
     });
@@ -225,6 +309,8 @@ class A {
 
   final num numField;
 
+  final DateTime dateTimeField;
+
   final List<C> listOfSerializableField;
 
   final Set<C> setOfSerializableField;
@@ -232,6 +318,9 @@ class A {
   final Map<String, C> mapOfSerializableField;
 
   final EnumField enumField;
+  final CustomStringSerialization customStringSerializationField;
+
+  final CustomMapSerialization customMapSerializationField;
 }
 
 @JsonCodable()
@@ -246,11 +335,17 @@ class B {
 
   final num? nullableNumField;
 
+  final DateTime? nullableDateTimeField;
+
   final List<C>? nullableListOfSerializableField;
 
   final Set<C>? nullableSetOfSerializableField;
 
   final Map<String, C>? nullableMapOfSerializableField;
+
+  final CustomStringSerialization? nullableCustomStringSerializationField;
+
+  final CustomMapSerialization? nullableCustomMapSerializationField;
 }
 
 @JsonCodable()
@@ -265,11 +360,19 @@ class D extends C {
 
 @JsonCodable()
 class E {
+  final List<DateTime?> listOfNullableDates;
+
   final List<int?> listOfNullableInts;
 
   final List<C?> listOfNullableSerializables;
 
   final List<Map<String, int?>?> listOfNullableMapsOfNullableInts;
+
+  final List<CustomStringSerialization?> listOfCustomStringSerializables;
+
+  final List<CustomMapSerialization?> listOfCustomMapSerializables;
+
+  final Set<DateTime?> setOfNullableDates;
 
   final Set<int?> setOfNullableInts;
 
@@ -277,11 +380,21 @@ class E {
 
   final Set<Map<String, int?>?> setOfNullableMapsOfNullableInts;
 
+  final Set<CustomStringSerialization?> setOfCustomStringSerializables;
+
+  final Set<CustomMapSerialization?> setOfCustomMapSerializables;
+
+  final Map<String, DateTime?> mapOfNullableDates;
+
   final Map<String, int?> mapOfNullableInts;
 
   final Map<String, C?> mapOfNullableSerializables;
 
   final Map<String, Set<int?>?> mapOfNullableSetsOfNullableInts;
+
+  final Map<String, CustomStringSerialization?> mapOfCustomStringSerializables;
+
+  final Map<String, CustomMapSerialization?> mapOfCustomMapSerializables;
 }
 
 @JsonCodable()
@@ -292,4 +405,42 @@ class F {
 enum EnumField {
   a,
   b;
+}
+
+class CustomStringSerialization {
+  final String a;
+
+  CustomStringSerialization(this.a);
+
+  String toJson() => a;
+
+  factory CustomStringSerialization.fromJson(String a) =>
+      CustomStringSerialization(a);
+
+  @override
+  bool operator ==(Object other) =>
+      other is CustomStringSerialization && a == other.a;
+
+  @override
+  int get hashCode => a.hashCode;
+}
+
+class CustomMapSerialization {
+  final Map<String, dynamic> a;
+
+  CustomMapSerialization(this.a);
+
+  Map<String, dynamic> toJson() => a;
+
+  factory CustomMapSerialization.fromJson(Map<String, dynamic> a) =>
+      CustomMapSerialization(a);
+
+  @override
+  bool operator ==(Object other) {
+    return other is CustomMapSerialization &&
+        a.toString() == other.a.toString();
+  }
+
+  @override
+  int get hashCode => a.hashCode;
 }

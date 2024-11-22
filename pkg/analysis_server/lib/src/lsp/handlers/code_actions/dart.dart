@@ -21,14 +21,15 @@ import 'package:analysis_server_plugin/src/correction/fix_processor.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/session.dart'
     show InconsistentAnalysisException;
-import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/element2.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
+import 'package:analyzer/src/utilities/extensions/element.dart';
 
 /// Produces [CodeAction]s from Dart source commands, fixes, assists and
 /// refactors from the server.
 class DartCodeActionsProducer extends AbstractCodeActionsProducer {
-  ResolvedLibraryResult library;
-  ResolvedUnitResult unit;
+  ResolvedLibraryResult libraryResult;
+  ResolvedUnitResult unitResult;
   Range range;
   final OptionalVersionedTextDocumentIdentifier docIdentifier;
   final CodeActionTriggerKind? triggerKind;
@@ -38,8 +39,8 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
     super.file,
     super.lineInfo,
     this.docIdentifier,
-    this.library,
-    this.unit, {
+    this.libraryResult,
+    this.unitResult, {
     required this.range,
     required super.offset,
     required super.length,
@@ -125,7 +126,8 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
       var context = DartAssistContextImpl(
         server.instrumentationService,
         workspace,
-        unit,
+        libraryResult,
+        unitResult,
         server.producerGeneratorsForLintRules,
         offset,
         length,
@@ -136,8 +138,8 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
       return assists.map((assist) {
         var action = createAssistAction(
           assist.change,
-          unit.path,
-          unit.lineInfo,
+          unitResult.path,
+          unitResult.lineInfo,
         );
         return (action: action, priority: assist.kind.priority);
       }).toList();
@@ -156,12 +158,12 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
       return [];
     }
 
-    var lineInfo = unit.lineInfo;
+    var lineInfo = unitResult.lineInfo;
     var codeActions = <CodeActionWithPriority>[];
 
     try {
       var workspace = DartChangeWorkspace(await server.currentSessions);
-      for (var error in unit.errors) {
+      for (var error in unitResult.errors) {
         // Return fixes for any part of the line where a diagnostic is.
         // If a diagnostic spans multiple lines, the fix will be included for
         // all of those lines.
@@ -176,14 +178,15 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         var context = DartFixContext(
           instrumentationService: server.instrumentationService,
           workspace: workspace,
-          resolvedResult: unit,
+          libraryResult: libraryResult,
+          unitResult: unitResult,
           error: error,
         );
         var fixes = await computeFixes(context);
         if (fixes.isNotEmpty) {
           var diagnostic = toDiagnostic(
             server.uriConverter,
-            unit,
+            unitResult,
             error,
             supportedTags: supportedDiagnosticTags,
             clientSupportsCodeDescription: supportsCodeDescription,
@@ -226,8 +229,8 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
       var context = RefactoringContext(
         server: server,
         startSessions: await server.currentSessions,
-        resolvedLibraryResult: library,
-        resolvedUnitResult: unit,
+        resolvedLibraryResult: libraryResult,
+        resolvedUnitResult: unitResult,
         clientCapabilities: capabilities,
         selectionOffset: offset,
         selectionLength: length,
@@ -243,7 +246,7 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         // Extract Method
         if (ExtractMethodRefactoring(
           server.searchEngine,
-          unit,
+          unitResult,
           offset,
           length,
         ).isAvailable()) {
@@ -257,7 +260,7 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         }
 
         // Extract Local Variable
-        if (ExtractLocalRefactoring(unit, offset, length).isAvailable()) {
+        if (ExtractLocalRefactoring(unitResult, offset, length).isAvailable()) {
           refactorActions.add(
             createRefactor(
               CodeActionKind.RefactorExtract,
@@ -270,7 +273,7 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         // Extract Widget
         if (ExtractWidgetRefactoring(
           server.searchEngine,
-          unit,
+          unitResult,
           offset,
           length,
         ).isAvailable()) {
@@ -289,7 +292,7 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         // Inline Local Variable
         if (InlineLocalRefactoring(
           server.searchEngine,
-          unit,
+          unitResult,
           offset,
         ).isAvailable()) {
           refactorActions.add(
@@ -304,7 +307,7 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         // Inline Method
         if (InlineMethodRefactoring(
           server.searchEngine,
-          unit,
+          unitResult,
           offset,
         ).isAvailable()) {
           refactorActions.add(
@@ -319,14 +322,14 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
 
       // Converts/Rewrites
       if (shouldIncludeKind(CodeActionKind.RefactorRewrite)) {
-        var node = NodeLocator(offset).searchWithin(unit.unit);
-        var element = server.getElementOfNode(node);
+        var node = NodeLocator(offset).searchWithin(unitResult.unit);
+        var element = server.getElementOfNode(node).asElement2;
 
         // Getter to Method
-        if (element is PropertyAccessorElement &&
+        if (element is GetterElement &&
             ConvertGetterToMethodRefactoring(
               server.refactoringWorkspace,
-              unit.session,
+              unitResult.session,
               element,
             ).isAvailable()) {
           refactorActions.add(
@@ -339,10 +342,10 @@ class DartCodeActionsProducer extends AbstractCodeActionsProducer {
         }
 
         // Method to Getter
-        if (element is ExecutableElement &&
+        if (element is ExecutableElement2 &&
             ConvertMethodToGetterRefactoring(
               server.refactoringWorkspace,
-              unit.session,
+              unitResult.session,
               element,
             ).isAvailable()) {
           refactorActions.add(

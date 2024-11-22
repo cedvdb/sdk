@@ -14,6 +14,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/element2.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:analyzer/error/error.dart';
@@ -23,6 +24,7 @@ import 'package:analyzer/src/dart/element/element.dart';
 import 'package:analyzer/src/dart/element/extensions.dart';
 import 'package:analyzer/src/dart/element/type_system.dart';
 import 'package:analyzer/src/error/codes.dart';
+import 'package:analyzer/src/utilities/extensions/element.dart';
 import 'package:meta/meta.dart';
 
 /// The state of an object representing a boolean value.
@@ -898,6 +900,11 @@ class DartObjectImpl implements DartObject, Constant {
   }
 
   @override
+  ExecutableElement2? toFunctionValue2() {
+    return toFunctionValue().asElement2;
+  }
+
+  @override
   int? toIntValue() {
     var state = this.state;
     if (state is IntState) {
@@ -922,6 +929,16 @@ class DartObjectImpl implements DartObject, Constant {
       return state.entries;
     }
     return null;
+  }
+
+  @override
+  ({List<DartObject> positional, Map<String, DartObject> named})?
+      toRecordValue() {
+    if (state case RecordState(:var positionalFields, :var namedFields)) {
+      return (positional: positionalFields, named: namedFields);
+    } else {
+      return null;
+    }
   }
 
   @override

@@ -5,7 +5,7 @@
 // NOTE: THIS FILE IS GENERATED. DO NOT EDIT.
 //
 // Instead modify 'tools/experimental_features.yaml' and run
-// 'dart pkg/front_end/tool/fasta.dart generate-experimental-flags' to update.
+// 'dart pkg/front_end/tool/cfe.dart generate-experimental-flags' to update.
 const Version defaultLanguageVersion = const Version(3, 7);
 
 /// Enum for experimental flags shared between the CFE and the analyzer.
@@ -140,10 +140,10 @@ enum ExperimentalFlag {
 
   inferenceUsingBounds(
     name: 'inference-using-bounds',
-    isEnabledByDefault: false,
+    isEnabledByDefault: true,
     isExpired: false,
-    experimentEnabledVersion: defaultLanguageVersion,
-    experimentReleasedVersion: defaultLanguageVersion,
+    experimentEnabledVersion: const Version(3, 7),
+    experimentReleasedVersion: const Version(3, 7),
   ),
 
   inlineClass(

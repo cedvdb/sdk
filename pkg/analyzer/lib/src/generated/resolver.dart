@@ -22,6 +22,7 @@ import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/element2.dart';
 import 'package:analyzer/dart/element/scope.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/dart/element/type_provider.dart';
@@ -86,6 +87,7 @@ import 'package:analyzer/src/generated/utilities_dart.dart';
 import 'package:analyzer/src/generated/variable_type_provider.dart';
 import 'package:analyzer/src/task/inference_error.dart';
 import 'package:analyzer/src/util/ast_data_extractor.dart';
+import 'package:analyzer/src/utilities/extensions/element.dart';
 import 'package:analyzer/src/utilities/extensions/object.dart';
 
 /// Function determining which source files should have inference logging
@@ -181,6 +183,7 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
   AugmentableElement? enclosingAugmentation;
 
   /// The manager for the inheritance mappings.
+  @override
   final InheritanceManager3 inheritance;
 
   /// The feature set that is enabled for the current unit.
@@ -715,9 +718,9 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
           if (flowAnalysis.dataForTesting != null) {
             var nonPromotionReasonText = entry.value.shortName;
             var args = <String>[];
-            if (whyNotPromotedVisitor.propertyReference != null) {
-              var id =
-                  computeMemberId(whyNotPromotedVisitor.propertyReference!);
+            var propertyReference = whyNotPromotedVisitor.propertyReference;
+            if (propertyReference != null) {
+              var id = computeMemberId(propertyReference.asElement2);
               args.add('target: $id');
             }
             var propertyType = whyNotPromotedVisitor.propertyType;
@@ -1452,8 +1455,9 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
       var whyNotPromoted = flowAnalysis.flow?.whyNotPromoted(node.index);
       checkIndexExpressionIndex(
         node.index,
-        readElement: hasRead ? result.readElement as ExecutableElement? : null,
-        writeElement: result.writeElement as ExecutableElement?,
+        readElement:
+            hasRead ? result.readElement2 as ExecutableElement2? : null,
+        writeElement: result.writeElement2 as ExecutableElement2?,
         whyNotPromoted: whyNotPromoted,
       );
 
@@ -2196,6 +2200,9 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
 
   @override
   void visitClassDeclaration(covariant ClassDeclarationImpl node) {
+    var declaredFragment = node.declaredFragment!;
+    var declaredElement = declaredFragment.element;
+
     //
     // Continue the class resolution.
     //
@@ -2210,16 +2217,19 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
     }
 
     baseOrFinalTypeVerifier.checkElement(
-        node.declaredElement!, node.implementsClause);
+        declaredElement, node.implementsClause);
   }
 
   @override
   void visitClassTypeAlias(covariant ClassTypeAliasImpl node) {
+    var declaredFragment = node.declaredFragment!;
+    var declaredElement = declaredFragment.element;
+
     checkUnreachableNode(node);
     node.visitChildren(this);
     elementResolver.visitClassTypeAlias(node);
     baseOrFinalTypeVerifier.checkElement(
-        node.declaredElement!, node.implementsClause);
+        declaredElement, node.implementsClause);
   }
 
   @override
@@ -2373,7 +2383,7 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
     var whyNotPromoted = flowAnalysis.flow?.whyNotPromoted(expression);
     if (fieldElement != null) {
       var enclosingConstructor = enclosingFunction as ConstructorElement;
-      checkForFieldInitializerNotAssignable(node, fieldElement,
+      checkForFieldInitializerNotAssignable(node, fieldElement.asElement2,
           isConstConstructor: enclosingConstructor.isConst,
           whyNotPromoted: whyNotPromoted);
     }
@@ -3027,7 +3037,7 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
     var whyNotPromoted = flowAnalysis.flow?.whyNotPromoted(node.index);
     checkIndexExpressionIndex(
       node.index,
-      readElement: result.readElement as ExecutableElement?,
+      readElement: result.readElement2 as ExecutableElement2?,
       writeElement: null,
       whyNotPromoted: whyNotPromoted,
     );
@@ -3262,6 +3272,9 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
 
   @override
   void visitMixinDeclaration(covariant MixinDeclarationImpl node) {
+    var declaredFragment = node.declaredFragment!;
+    var declaredElement = declaredFragment.element;
+
     //
     // Continue the class resolution.
     //
@@ -3276,7 +3289,7 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
     }
 
     baseOrFinalTypeVerifier.checkElement(
-        node.declaredElement!, node.implementsClause);
+        declaredElement, node.implementsClause);
   }
 
   @override
@@ -4146,7 +4159,7 @@ class ResolverVisitor extends ThrowingAstVisitor<void>
 
     var callReference = ImplicitCallReferenceImpl(
       expression: expression,
-      staticElement: callMethod,
+      staticElement: callMethod.asElement,
       typeArguments: null,
       typeArgumentTypes: typeArgumentTypes,
     );
